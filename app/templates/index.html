@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>osu!Skill - Discover Your True Rank</title>
+  <!-- SEO -->
+  <meta name="description" content="Connect your osu! account and discover your true skill level with advanced analysis beyond PP rankings." />
+  <meta name="keywords" content="osu, osu!skill, pp analyzer, osu ranking, skill check, rhythm game stats, osu pp" />
+  <meta name="author" content="osu!Skill Team" />
+
+  <!-- Favicon (optional) -->
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon" />
+
+  <!-- Open Graph / Discord / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://yourdomain.com/" />
+  <meta property="og:title" content="osu!Skill - Discover Your True Rank" />
+  <meta property="og:description" content="Discover your osu! skill level with analysis beyond PP." />
+  <meta property="og:image" content="https://yourdomain.com/static/images/preview.png" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="osu!Skill - Discover Your True Rank" />
+  <meta name="twitter:description" content="Discover your osu! skill level with analysis beyond PP." />
+  <meta name="twitter:image" content="https://yourdomain.com/static/images/preview.png" />
+
+  <!-- Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+
+</head>
+<body>
+  <header>
+    <div class="container">
+      <nav>
+        <a href="/" class="logo">osu!Skill</a>
+        <ul class="nav-links">
+          <li><a href="#about">About</a></li>
+          <li><a href="#contact">Donate</a></li>
+          
+          <!-- Wrap user card and logout in a container -->
+          <li class="user-area">
+            <a href="{{ '/dashboard' if username else '/login' }}" class="user-card">
+              <img
+                src="{{ user_avatar or 'https://a.ppy.sh/14752899?1628953484.png' }}"
+                alt="User Avatar"
+                class="user-avatar"
+              />
+              <span class="username">{{ username or 'Guest' }}</span>
+            </a>
+            {% if username %}
+              <a href="{{ url_for('auth.logout') }}" class="logout-link">Logout</a>
+
+            {% endif %}
+          </li>
+        </ul>
+
+      </nav>
+
+    </div>
+  </header>
+
+  <main>
+    <section class="main-content">
+      <img
+        class="mascot"
+        src="https://i.ppy.sh/8662e30071c8d108af6bf3d3bc5f9d4ebd9750f5/68747470733a2f2f6f73752e7070792e73682f77696b692f696d616765732f4d6173636f74732f696d672f4d6f6368612e706e67"
+        alt="osu! Mascot"
+      />
+      <div class="welcome-section">
+        <h1>Welcome to osu!Skill</h1>
+        <p>Connect your osu! account to discover your true skill level using advanced analysis that goes beyond pp ranking.</p>
+        {% if username %}
+          <a href="/dashboard" class="main-login-btn">Get Your osu! Skill Report</a>
+        {% else %}
+          <a href="/login" class="main-login-btn">Connect osu! Account</a>
+        {% endif %}
+
+      </div>
+    </section>
+  </main>
+
+<footer>
+  <div class="container footer-container">
+    <p class="footer-left">&copy; 2025 osu!Skill. Built for the osu! community with ❤️</p>
+    <div class="footer-right">
+      <a href="https://www.youtube.com/@snovynosu" target="_blank" rel="noopener" aria-label="YouTube">
+        <img src="{{ url_for('static', filename='icons/youtube.svg') }}" alt="YouTube" class="footer-icon" />
+      </a>
+      <a href="https://github.com/snovn/osu-skill" target="_blank" rel="noopener" aria-label="GitHub">
+        <img src="{{ url_for('static', filename='icons/github.svg') }}" alt="GitHub" class="footer-icon" />
+      </a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

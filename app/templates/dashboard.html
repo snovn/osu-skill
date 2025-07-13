@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>osu!Skill Dashboard - {{ username }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <style>
+    .dashboard-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+    
+    .user-header {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 40px;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .user-avatar-large {
+      width: 80px;
+      height: 80px;
+      border-radius: 8px;
+      object-fit: cover;
+    }
+    
+    .user-info h1 {
+      color: var(--color-primary);
+      margin-bottom: 8px;
+      font-size: 28px;
+    }
+    
+    .user-stats {
+      display: flex;
+      gap: 20px;
+      color: var(--color-text-light);
+    }
+    
+    .stat-item {
+      font-size: 14px;
+    }
+    
+    .stat-value {
+      font-weight: 600;
+      color: var(--color-text);
+    }
+    
+    .analysis-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-bottom: 40px;
+    }
+    
+    .analysis-card {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 25px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .analysis-card h3 {
+      color: var(--color-primary);
+      margin-bottom: 15px;
+      font-size: 20px;
+    }
+    
+    .skill-score {
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--color-text);
+      margin-bottom: 8px;
+    }
+    
+    .skill-label {
+      color: var(--color-text-light);
+      font-size: 14px;
+      margin-bottom: 15px;
+    }
+    
+    .verdict-badge {
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 14px;
+      display: inline-block;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .verdict-accurate { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+    .verdict-slightly_rusty { background: rgba(251, 191, 36, 0.2); color: #fbbf24; }
+    .verdict-overranked { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+    .verdict-inactive { background: rgba(107, 114, 128, 0.2); color: #6b7280; }
+    .verdict-insufficient { background: rgba(156, 163, 175, 0.2); color: #9ca3af; }
+    
+    .confidence-bar {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+    
+    .confidence-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #ef4444, #fbbf24, #22c55e);
+      transition: width 0.5s ease;
+    }
+    
+    .insights-section {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 25px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .insights-section h3 {
+      color: var(--color-primary);
+      margin-bottom: 20px;
+      font-size: 20px;
+    }
+    
+    .insight-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .insight-item:last-child {
+      border-bottom: none;
+    }
+    
+    .insight-icon {
+      width: 20px;
+      height: 20px;
+      background: var(--color-primary);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: white;
+      flex-shrink: 0;
+    }
+    
+    .error-message {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 8px;
+      padding: 20px;
+      color: #ef4444;
+      margin-bottom: 20px;
+    }
+    
+    .loading-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 300px;
+      gap: 20px;
+    }
+    
+    .loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 3px solid rgba(255, 102, 170, 0.3);
+      border-top: 3px solid var(--color-primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .cache-indicator {
+      font-size: 12px;
+      color: var(--color-text-light);
+      margin-top: 10px;
+      opacity: 0.7;
+    }
+    
+    .analyze-button {
+      background: var(--color-primary);
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-decoration: none;
+      display: inline-block;
+      margin-top: 20px;
+    }
+    
+    .analyze-button:hover {
+      background: var(--color-primary-dark);
+      transform: translateY(-2px);
+    }
+    
+    @media (max-width: 768px) {
+      .analysis-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+      
+      .user-header {
+        flex-direction: column;
+        text-align: center;
+      }
+      
+      .user-stats {
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <nav>
+        <a href="/" class="logo">osu!Skill</a>
+        <ul class="nav-links">
+          <li><a href="/">Home</a></li>
+          <li><a href="/leaderboard">Leaderboard</a></li>
+          <li class="user-area">
+            <a href="/dashboard" class="user-card">
+              <img src="{{ user_info.avatar_url if user_info else 'https://a.ppy.sh/14752899?1628953484.png' }}" 
+                   alt="User Avatar" class="user-avatar">
+              <span class="username">{{ username }}</span>
+            </a>
+            <a href="{{ url_for('auth.logout') }}" class="logout-link">Logout</a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="dashboard-container">
+      {% if error %}
+        <div class="error-message">
+          <strong>Error:</strong> {{ error }}
+          <a href="/analyze" class="analyze-button">Try Again</a>
+        </div>
+      {% elif not analysis %}
+        <div class="loading-container">
+          <div class="loading-spinner"></div>
+          <p>Analyzing your osu! skill...</p>
+          <p style="color: var(--color-text-light); font-size: 14px;">
+            This may take a few moments as we fetch and analyze your plays.
+          </p>
+        </div>
+        <script>
+          // Auto-redirect to analysis if no data
+          setTimeout(() => {
+            window.location.href = '/analyze';
+          }, 1000);
+        </script>
+      {% else %}
+        {% if user_info %}
+        <div class="user-header">
+          <img src="{{ user_info.avatar_url }}" alt="{{ username }}" class="user-avatar-large">
+          <div class="user-info">
+            <h1>{{ user_info.username }}</h1>
+            <div class="user-stats">
+              <div class="stat-item">
+                <span class="stat-value">#{{ "{:,}".format(user_info.statistics.global_rank) if user_info.statistics.global_rank else 'N/A' }}</span>
+                Global Rank
+              </div>
+              <div class="stat-item">
+                <span class="stat-value">{{ "{:,.0f}".format(user_info.statistics.pp) if user_info.statistics.pp else '0' }}pp</span>
+                Performance Points
+              </div>
+              <div class="stat-item">
+                <span class="stat-value">{{ "{:,}".format(user_info.statistics.play_count) if user_info.statistics.play_count else '0' }}</span>
+                Play Count
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="analysis-grid">
+          <div class="analysis-card">
+            <h3>Peak Skill</h3>
+            <div class="skill-score">{{ analysis.peak_skill }}</div>
+            <div class="skill-label">Based on your top plays</div>
+          </div>
+          
+          <div class="analysis-card">
+            <h3>Recent Skill</h3>
+            <div class="skill-score">{{ analysis.recent_skill }}</div>
+            <div class="skill-label">Based on recent performance</div>
+          </div>
+          
+          <div class="analysis-card">
+            <h3>Skill Match</h3>
+            <div class="skill-score">{{ analysis.skill_match }}%</div>
+            <div class="skill-label">How well you're performing</div>
+          </div>
+          
+          <div class="analysis-card">
+            <h3>Confidence</h3>
+            <div class="skill-score">{{ analysis.confidence }}%</div>
+            <div class="skill-label">Analysis reliability</div>
+            <div class="confidence-bar">
+            <div class="confidence-fill" style="width: {{ analysis.confidence }}%;"></div>
+
+            </div>
+          </div>
+        </div>
+
+        <div class="analysis-grid">
+          <div class="analysis-card">
+            <h3>Verdict</h3>
+            <div class="verdict-badge verdict-{{ analysis.verdict }}">
+              {% if analysis.verdict == 'accurate' %}
+                Accurate Rank
+              {% elif analysis.verdict == 'slightly_rusty' %}
+                Slightly Rusty
+              {% elif analysis.verdict == 'overranked' %}
+                Overranked
+              {% elif analysis.verdict == 'inactive' %}
+                Inactive
+              {% else %}
+                Insufficient Data
+              {% endif %}
+            </div>
+            <div class="skill-label" style="margin-top: 15px;">
+              {% if analysis.verdict == 'accurate' %}
+                Your current rank accurately reflects your skill level.
+              {% elif analysis.verdict == 'slightly_rusty' %}
+                You're performing slightly below your peak skill level.
+              {% elif analysis.verdict == 'overranked' %}
+                Your rank may be higher than your current skill level.
+              {% elif analysis.verdict == 'inactive' %}
+                You haven't been playing at your usual level recently.
+              {% else %}
+                Not enough recent play data for accurate analysis.
+              {% endif %}
+            </div>
+          </div>
+          
+          <div class="analysis-card">
+            <h3>Confidence Factors</h3>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="display: flex; justify-content: space-between;">
+                <span>Volume</span>
+                <span>{{ "{:.0f}".format(analysis.confidence_factors.volume * 100) }}%</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span>Diversity</span>
+                <span>{{ "{:.0f}".format(analysis.confidence_factors.diversity * 100) }}%</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span>Recency</span>
+                <span>{{ "{:.0f}".format(analysis.confidence_factors.recency * 100) }}%</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span>Consistency</span>
+                <span>{{ "{:.0f}".format(analysis.confidence_factors.consistency * 100) }}%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {% if analysis.insights %}
+        <div class="insights-section">
+          <h3>🔍 Insights</h3>
+          {% for insight in analysis.insights %}
+          <div class="insight-item">
+            <div class="insight-icon">!</div>
+            <div>{{ insight }}</div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if from_cache %}
+        <div class="cache-indicator">
+          ⚡ Results from cache - refresh in an hour for updated analysis
+        </div>
+        {% endif %}
+
+        <div style="text-align: center; margin-top: 40px;">
+          <a href="/analyze" class="analyze-button">Refresh Analysis</a>
+        </div>
+      {% endif %}
+    </div>
+  </main>
+
+  <footer>
+    <div class="container footer-container">
+      <p class="footer-left">&copy; 2025 osu!Skill. Built for the osu! community with ❤️</p>
+      <div class="footer-right">
+        <a href="https://www.youtube.com/@snovynosu" target="_blank" rel="noopener">
+          <img src="{{ url_for('static', filename='icons/youtube.svg') }}" alt="YouTube" class="footer-icon">
+        </a>
+        <a href="https://github.com/snovn/osu-skill" target="_blank" rel="noopener">
+          <img src="{{ url_for('static', filename='icons/github.svg') }}" alt="GitHub" class="footer-icon">
+        </a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

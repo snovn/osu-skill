@@ -1,0 +1,324 @@
+/* =====================
+   Reset & Box Sizing
+===================== */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* =====================
+   Root variables (theme colors)
+===================== */
+:root {
+  --color-bg-start: #262236;
+  --color-bg-end: #1d1b2e;
+  --color-primary: #ff66aa;
+  --color-primary-dark: #e0559d;
+  --color-text-light: #ccc;
+  --color-text: #fff;
+  --color-text-muted: #ddd;
+  --color-usercard-bg-start: rgba(255, 255, 255, 0.02);
+  --color-usercard-bg-end: rgba(255, 255, 255, 0.01);
+  --color-usercard-border: rgba(255, 255, 255, 0.05);
+}
+
+/* =====================
+   Base Body & Typography
+===================== */
+body {
+  font-family: 'Quicksand', sans-serif;
+  background: linear-gradient(135deg, var(--color-bg-start) 0%, var(--color-bg-end) 100%);
+  color: var(--color-text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* =====================
+   Header & Navigation
+===================== */
+header {
+  background-color: rgba(22, 18, 37, 0.85);
+  backdrop-filter: blur(8px);
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  z-index: 100;
+}
+
+nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logo::before {
+  content: "o";
+  font-size: 30px;
+  color: var(--color-primary);
+}
+
+.nav-links {
+  display: flex;
+  gap: 30px;
+  list-style: none;
+  align-items: center;
+}
+
+/* Make user-area a flex container to keep user card and logout close */
+.user-area {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* small gap between user card and logout */
+}
+
+/* Logout link styling */
+.logout-link {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--color-primary);
+  padding: 6px 12px;
+  border-radius: 8px;
+  transition: background 0.3s ease;
+  height: 36px; /* same height as avatar */
+  display: flex;
+  align-items: center;
+}
+
+.logout-link:hover {
+  background: rgba(255, 102, 170, 0.1);
+  text-decoration: none;
+}
+
+
+/* =====================
+   User Card
+===================== */
+.user-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(145deg, var(--color-usercard-bg-start), var(--color-usercard-bg-end));
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--color-usercard-border);
+  position: relative;
+  overflow: hidden;
+  transition: background 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s ease;
+  transform: translateY(0);
+}
+
+.user-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 102, 170, 0.1), transparent);
+  transition: left 0.5s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.user-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.user-card:hover::before {
+  left: 0;
+}
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1; /* above the glow */
+}
+
+.username {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--color-primary);
+  position: relative;
+  z-index: 1;
+}
+
+/* =====================
+   Main content & layout
+===================== */
+main {
+  flex-grow: 1;
+  text-transform: lowercase;
+}
+
+/* Wrapper for page-specific content */
+.page-content {
+  padding: 80px 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Home page main content */
+.main-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 50px;
+  min-height: 75vh;
+  text-align: left;
+}
+
+.mascot {
+  width: 320px;
+  max-width: 90vw;
+  height: auto;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 25px rgba(255, 107, 157, 0.25));
+}
+
+.welcome-section {
+  max-width: 480px;
+}
+
+.welcome-section h1 {
+  font-size: 42px;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: 18px;
+}
+
+.welcome-section p {
+  font-size: 17px;
+  color: var(--color-text-light);
+  line-height: 1.6;
+  margin-bottom: 40px;
+}
+
+.main-login-btn {
+  background: var(--color-primary);
+  color: white;
+  padding: 12px 30px;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: inline-block;
+  box-shadow: 0 0 10px rgba(255, 107, 157, 0.3);
+}
+
+.main-login-btn:hover {
+  background: var(--color-primary-dark);
+  box-shadow: 0 0 15px rgba(255, 107, 157, 0.4);
+}
+
+/* =====================
+   Footer
+===================== */
+.footer-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+
+.footer-left {
+  margin: 0;
+}
+
+.footer-right {
+  display: flex;
+  gap: 20px;
+}
+
+.footer-icon {
+  width: 24px;
+  height: 24px;
+  filter: brightness(0) invert(1); /* makes icons white */
+  transition: filter 0.3s ease;
+}
+
+.footer-icon:hover {
+  filter: brightness(0) invert(0.75) sepia(1) saturate(5) hue-rotate(300deg);
+}
+
+
+/* =====================
+   Utility classes (reuse on other pages)
+===================== */
+.text-center {
+  text-align: center;
+}
+
+.btn {
+  display: inline-block;
+  padding: 10px 22px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  user-select: none;
+  border: none;
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: white;
+  box-shadow: 0 0 10px rgba(255, 107, 157, 0.3);
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-dark);
+  box-shadow: 0 0 15px rgba(255, 107, 157, 0.4);
+}
+
+/* =====================
+   Responsive layout
+===================== */
+@media (max-width: 768px) {
+  .main-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 30px;
+  }
+
+  .mascot {
+    width: 200px;
+  }
+
+  .welcome-section h1 {
+    font-size: 32px;
+  }
+}
