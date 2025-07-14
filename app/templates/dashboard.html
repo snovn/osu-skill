@@ -6,6 +6,27 @@
   <title>osu!Skill Dashboard - {{ username }}</title>
   <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <!-- SEO -->
+  <meta name="description" content="Connect your osu! account and discover your true skill level with advanced analysis beyond PP rankings." />
+  <meta name="keywords" content="osu, osu!skill, pp analyzer, osu ranking, skill check, rhythm game stats, osu pp, osu ranking, osu leaderboard" />
+  <meta name="author" content="osu!Skill - snovn" />
+  <meta name="robots" content="noindex, nofollow" />
+
+  <!-- Favicon (optional) -->
+  <link rel="icon" href="{{ url_for('static', filename='icons/favicon.ico') }}" type="image/x-icon" />
+
+  <!-- Open Graph / Discord / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://osuskill.com/" />
+  <meta property="og:title" content="osu!Skill - Discover Your True Rank" />
+  <meta property="og:description" content="Discover your osu! skill level with analysis beyond PP." />
+  <meta property="og:image" content="https://osuskill.com/static/icons/preview.png" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="osu!Skill - Discover Your True Rank" />
+  <meta name="twitter:description" content="Discover your osu! skill level with analysis beyond PP." />
+  <meta name="twitter:image" content="https://osuskill.com/static/icons/preview.png" />
   <style>
     .dashboard-container {
       max-width: 1200px;
@@ -237,8 +258,6 @@
         <a href="/" class="logo">osu!Skill</a>
         <ul class="nav-links">
           <li><a href="/">Home</a></li>
-          <li><a href="#about">Wiki</a></li>
-          <li><a href="#contact">Donate</a></li>
           <li><a href="/leaderboard">Leaderboard</a></li>
           <li class="user-area">
             <a href="/dashboard" class="user-card">
