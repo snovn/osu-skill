@@ -176,7 +176,11 @@
       font-size: 12px;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+      min-width: 65px;
+      display: inline-block;
+      text-align: center;
     }
     
     .verdict-insufficient {
@@ -358,6 +362,12 @@
       }
       
       .skill-match { display: none; }
+      
+      .verdict-badge {
+        font-size: 10px;
+        padding: 3px 6px;
+        min-width: 50px;
+      }
     }
     
     .cache-indicator {
@@ -642,7 +652,7 @@
     function formatVerdict(verdict) {
       const verdictMap = {
         'accurate': 'Accurate',
-        'slightly_rusty': 'Slightly Rusty',
+        'slightly_rusty': 'Slightly',
         'rusty': 'Rusty',
         'overranked': 'Overranked',
         'inactive': 'Inactive',
