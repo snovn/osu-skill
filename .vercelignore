@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+.env
+node_modules/
+.git/
+*.md
+tests/
+docs/
+examples/
