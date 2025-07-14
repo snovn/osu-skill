@@ -7,3 +7,4 @@ python-dotenv==1.1.1
 requests==2.32.3
 gunicorn
 supabase
+pytz==2025.2
