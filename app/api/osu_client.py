@@ -7,21 +7,17 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import hashlib
-from flask import session
 
 class OsuClient:
-    def __init__(self, use_user_token: bool = True):
+    def __init__(self):
         self.client_id = os.getenv('OSU_CLIENT_ID')
         self.client_secret = os.getenv('OSU_CLIENT_SECRET')
-        self.use_user_token = use_user_token
         
         if not self.client_id or not self.client_secret:
             raise ValueError("OSU_CLIENT_ID and OSU_CLIENT_SECRET environment variables must be set")
         
-        # For fallback to client credentials
-        self.client_access_token = None
-        self.client_token_expires_at = None
-        
+        self.access_token = None
+        self.token_expires_at = None
         self.base_url = 'https://osu.ppy.sh/api/v2'
         self.session = requests.Session()
         
@@ -33,22 +29,17 @@ class OsuClient:
         
         # Rate limiting
         self.last_request_time = 0
-        self.min_request_interval = 0.05  # 50ms between requests
+        self.min_request_interval = 0.05  # 50ms between requests (more aggressive)
         
         # Performance optimization
         self.session.headers.update({
             'User-Agent': 'osu-skillcheck/1.0',
             'Connection': 'keep-alive'
         })
-    
-    def get_user_token(self):
-        """Get valid user token, refreshing if necessary"""
-        from .oauth import get_user_token  # Import here to avoid circular imports
-        return get_user_token()
-    
+        
     def get_client_credentials_token(self) -> bool:
-        """Get client credentials token for API access (fallback)"""
-        if self.client_access_token and self.client_token_expires_at and datetime.now() < self.client_token_expires_at:
+        """Get client credentials token for API access"""
+        if self.access_token and self.token_expires_at and datetime.now() < self.token_expires_at:
             return True
             
         try:
@@ -61,9 +52,12 @@ class OsuClient:
             
             if response.status_code == 200:
                 data = response.json()
-                self.client_access_token = data.get('access_token')
+                self.access_token = data.get('access_token')
                 expires_in = data.get('expires_in', 86400)
-                self.client_token_expires_at = datetime.now() + timedelta(seconds=expires_in - 300)
+                self.token_expires_at = datetime.now() + timedelta(seconds=expires_in - 300)
+                
+                # Update session headers
+                self.session.headers.update({'Authorization': f'Bearer {self.access_token}'})
                 return True
             else:
                 print(f"Token request failed: {response.status_code} - {response.text}")
@@ -71,21 +65,6 @@ class OsuClient:
         except Exception as e:
             print(f"Token request error: {e}")
             return False
-    
-    def get_valid_token(self) -> Optional[str]:
-        """Get a valid token (user token preferred, client credentials as fallback)"""
-        if self.use_user_token:
-            user_token = self.get_user_token()
-            if user_token:
-                return user_token
-            else:
-                print("User token not available or expired, falling back to client credentials")
-        
-        # Fallback to client credentials
-        if self.get_client_credentials_token():
-            return self.client_access_token
-        
-        return None
     
     def _rate_limit(self):
         """Enforce rate limiting"""
@@ -102,9 +81,8 @@ class OsuClient:
     
     def make_request(self, endpoint: str, params: Dict = None, cache_timeout: int = 300) -> Optional[Dict]:
         """Make authenticated request to osu! API with caching and rate limiting"""
-        access_token = self.get_valid_token()
-        if not access_token:
-            print("Failed to get valid access token")
+        if not self.get_client_credentials_token():
+            print("Failed to get access token")
             return None
         
         # Check cache first
@@ -118,11 +96,8 @@ class OsuClient:
         self._rate_limit()
         url = f"{self.base_url}/{endpoint}"
         
-        # Set authorization header
-        headers = {'Authorization': f'Bearer {access_token}'}
-        
         try:
-            response = self.session.get(url, params=params or {}, headers=headers, timeout=10)
+            response = self.session.get(url, params=params or {}, timeout=10)
             
             if response.status_code == 200:
                 data = response.json()
@@ -132,23 +107,6 @@ class OsuClient:
                     self.score_cache[cache_key] = (data, time.time())
                 
                 return data
-            elif response.status_code == 401:
-                print("Token expired or invalid, attempting to refresh...")
-                # If using user token, try to refresh it
-                if self.use_user_token:
-                    from .oauth import refresh_user_token
-                    if refresh_user_token():
-                        # Retry the request with new token
-                        new_token = self.get_user_token()
-                        if new_token:
-                            headers['Authorization'] = f'Bearer {new_token}'
-                            response = self.session.get(url, params=params or {}, headers=headers, timeout=10)
-                            if response.status_code == 200:
-                                data = response.json()
-                                with self.cache_lock:
-                                    self.score_cache[cache_key] = (data, time.time())
-                                return data
-                return None
             elif response.status_code == 429:  # Rate limit
                 print("Rate limited, waiting 2 seconds...")
                 time.sleep(2)
@@ -170,12 +128,8 @@ class OsuClient:
             print(f"Unexpected error: {e}")
             return None
     
-    def get_user_info(self, username: str = None) -> Optional[Dict]:
-        """Get user profile information. If no username provided and using user token, gets current user"""
-        if self.use_user_token and not username:
-            # Use /me endpoint for current user
-            return self.make_request("me", cache_timeout=600)
-        
+    def get_user_info(self, username: str) -> Optional[Dict]:
+        """Get user profile information with caching"""
         if not username:
             return None
         
@@ -194,14 +148,8 @@ class OsuClient:
         
         return user_data
     
-    def get_user_scores(self, user_id: int = None, score_type: str = 'best', limit: int = 50) -> List[Dict]:
-        """Get user scores. If no user_id provided and using user token, gets current user's scores"""
-        if self.use_user_token and not user_id:
-            # Use /me/scores endpoint for current user
-            params = {'limit': limit, 'mode': 'osu'}
-            data = self.make_request(f"me/scores/{score_type}", params, cache_timeout=180)
-            return data or []
-        
+    def get_user_scores(self, user_id: int, score_type: str = 'best', limit: int = 50) -> List[Dict]:
+        """Get user scores (best/recent) with caching"""
         if not user_id:
             return []
         
@@ -274,8 +222,8 @@ class OsuClient:
         
         return results
     
-    def get_user_recent_activity(self, user_id: int = None, limit: int = 50) -> List[Dict]:
-        """Get recent plays. If no user_id provided and using user token, gets current user's recent plays"""
+    def get_user_recent_activity(self, user_id: int, limit: int = 50) -> List[Dict]:
+        """Get recent plays with optimized filtering"""
         recent_scores = self.get_user_scores(user_id, 'recent', limit)
         
         if not recent_scores:
@@ -295,81 +243,6 @@ class OsuClient:
                     continue
         
         return filtered_scores
-    
-    def get_comprehensive_user_data(self, username: str = None, score_limit: int = 25) -> Dict:
-        """Get all user data needed for skill analysis. If no username provided and using user token, gets current user"""
-        print(f"Fetching user info for {username or 'current user'}...")
-        start_time = time.time()
-        
-        user_info = self.get_user_info(username)
-        if not user_info:
-            return {}
-        
-        user_id = user_info.get('id')
-        if not user_id:
-            return {}
-        
-        print(f"User info fetched in {time.time() - start_time:.2f}s")
-        
-        # Get scores concurrently with better limits
-        scores_start = time.time()
-        
-        def get_top_plays():
-            # For user token, we can pass None to get current user's scores
-            target_user_id = None if (self.use_user_token and not username) else user_id
-            return self.get_user_scores(target_user_id, 'best', score_limit + 10)
-        
-        def get_recent_plays():
-            target_user_id = None if (self.use_user_token and not username) else user_id
-            return self.get_user_recent_activity(target_user_id, score_limit + 10)
-        
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            top_future = executor.submit(get_top_plays)
-            recent_future = executor.submit(get_recent_plays)
-            
-            top_plays_raw = top_future.result()
-            recent_plays_raw = recent_future.result()
-        
-        # Apply quality filtering and retry detection to recent plays
-        recent_plays_filtered = self.filter_recent_for_analysis(recent_plays_raw, score_limit)
-        
-        # For top plays, just limit and detect retries (they're already sorted by pp)
-        top_plays_limited = top_plays_raw[:score_limit] if top_plays_raw else []
-        top_plays = self.detect_retries(top_plays_limited)
-        
-        print(f"Scores processed: {len(top_plays)} top plays, {len(recent_plays_filtered)} recent plays")
-        print(f"Quality filtering: {len(recent_plays_raw)} → {len(recent_plays_filtered)} recent plays")
-        
-        print(f"Scores fetched in {time.time() - scores_start:.2f}s")
-        
-        # Enrich with beatmap data
-        enrich_start = time.time()
-        
-        def enrich_top():
-            return self.enrich_scores_with_beatmap_data(top_plays, prefix="TOP")
-        
-        def enrich_recent():
-            return self.enrich_scores_with_beatmap_data(recent_plays_filtered, prefix="RECENT")
-        
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            top_future = executor.submit(enrich_top)
-            recent_future = executor.submit(enrich_recent)
-            
-            top_plays_enriched = top_future.result()
-            recent_plays_enriched = recent_future.result()
-        
-        print(f"Enrichment completed in {time.time() - enrich_start:.2f}s")
-        print(f"Total data fetch time: {time.time() - start_time:.2f}s")
-        
-        return {
-            'user_info': user_info,
-            'top_plays': top_plays_enriched,
-            'recent_plays': recent_plays_enriched
-        }
-    
-    # ... [rest of the methods remain the same: detect_retries, calculate_basic_skill_score, 
-    # filter_recent_for_analysis, enrich_scores_with_beatmap_data, clear_cache, 
-    # get_cache_stats, preload_user_data]
     
     def detect_retries(self, scores: List[Dict]) -> List[Dict]:
         """Detect and mark retry attempts (same map < 30 mins apart)"""
@@ -489,6 +362,80 @@ class OsuClient:
         
         return enriched_scores
     
+    def get_comprehensive_user_data(self, username: str, score_limit: int = 25) -> Dict:
+        """Get all user data needed for skill analysis with fair score limiting"""
+        if not username:
+            return {}
+        
+        print(f"Fetching user info for {username}...")
+        start_time = time.time()
+        
+        user_info = self.get_user_info(username)
+        if not user_info:
+            return {}
+        
+        user_id = user_info.get('id')
+        if not user_id:
+            return {}
+        
+        print(f"User info fetched in {time.time() - start_time:.2f}s")
+        
+        # Get scores concurrently with better limits
+        scores_start = time.time()
+        
+        def get_top_plays():
+            # Get more than we need to allow for filtering
+            return self.get_user_scores(user_id, 'best', score_limit + 10)
+        
+        def get_recent_plays():
+            # Get more than we need to allow for filtering
+            return self.get_user_recent_activity(user_id, score_limit + 10)
+        
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            top_future = executor.submit(get_top_plays)
+            recent_future = executor.submit(get_recent_plays)
+            
+            top_plays_raw = top_future.result()
+            recent_plays_raw = recent_future.result()
+        
+        # Apply quality filtering and retry detection to recent plays
+        recent_plays_filtered = self.filter_recent_for_analysis(recent_plays_raw, score_limit)
+        
+        # For top plays, just limit and detect retries (they're already sorted by pp)
+        top_plays_limited = top_plays_raw[:score_limit] if top_plays_raw else []
+        top_plays = self.detect_retries(top_plays_limited)
+        
+        print(f"Scores processed: {len(top_plays)} top plays, {len(recent_plays_filtered)} recent plays")
+        print(f"Quality filtering: {len(recent_plays_raw)} → {len(recent_plays_filtered)} recent plays")
+        
+        print(f"Scores fetched in {time.time() - scores_start:.2f}s")
+        # print(f"Limited to    {len(top_plays)} top plays and {len(get_recent_plays)} recent plays")
+        
+        # Enrich with beatmap data
+        enrich_start = time.time()
+        
+        def enrich_top():
+            return self.enrich_scores_with_beatmap_data(top_plays, prefix="TOP")
+        
+        def enrich_recent():
+            return self.enrich_scores_with_beatmap_data(recent_plays_filtered, prefix="RECENT")
+        
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            top_future = executor.submit(enrich_top)
+            recent_future = executor.submit(enrich_recent)
+            
+            top_plays_enriched = top_future.result()
+            recent_plays_enriched = recent_future.result()
+        
+        print(f"Enrichment completed in {time.time() - enrich_start:.2f}s")
+        print(f"Total data fetch time: {time.time() - start_time:.2f}s")
+        
+        return {
+            'user_info': user_info,
+            'top_plays': top_plays_enriched,
+            'recent_plays': recent_plays_enriched
+        }
+    
     def clear_cache(self):
         """Clear all caches"""
         with self.cache_lock:
@@ -510,7 +457,7 @@ class OsuClient:
                 ) / (1024 * 1024)
             }
     
-    def preload_user_data(self, username: str = None) -> bool:
+    def preload_user_data(self, username: str) -> bool:
         """Preload user data in background"""
         try:
             threading.Thread(
@@ -520,5 +467,5 @@ class OsuClient:
             ).start()
             return True
         except Exception as e:
-            print(f"Error preloading data for {username or 'current user'}: {e}")
+            print(f"Error preloading data for {username}: {e}")
             return False
