@@ -9,7 +9,7 @@ auth_bp = Blueprint('auth', __name__)
 
 OSU_CLIENT_ID = os.getenv('OSU_CLIENT_ID')
 OSU_CLIENT_SECRET = os.getenv('OSU_CLIENT_SECRET')
-REDIRECT_URI = 'http://localhost:5000/callback'
+REDIRECT_URI = 'http://osuskill.com/callback'
 
 @auth_bp.route('/')
 def index():
