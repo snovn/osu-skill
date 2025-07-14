@@ -1,15 +1,4 @@
 {
-    "builds": [{ 
-        "src": "run.py", 
-        "use": "@vercel/python"
-    }],
-    "routes": [{ 
-        "src": "/(.*)", 
-        "dest": "run.py"
-    }],
-    "functions": {
-        "run.py": {
-            "runtime": "python3.10"
-        }
-    }
+    "builds": [{ "src": "run.py", "use": "@vercel/python"}],
+    "routes": [{ "src": "/(.*)", "dest": "run.py"}]
 }
