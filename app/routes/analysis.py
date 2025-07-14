@@ -27,6 +27,7 @@ ADMIN_USERS = {
     'snovn',  # Replace with your actual osu! username
     # Add more admin usernames as needed
 }
+
 def is_admin(username=None):
     """Check if user is an admin"""
     if username is None:
@@ -55,7 +56,7 @@ def get_components():
         if _db is None:
             _db = SupabaseDatabase()  # Changed from Database() to SupabaseDatabase()
         if _osu_client is None:
-            _osu_client = OsuClient()
+            _osu_client = OsuClient(use_user_token=True)  # Enable user token usage
         if _analyzer is None:
             _analyzer = SkillAnalyzer()
     
@@ -108,9 +109,9 @@ def dashboard():
     db, osu_client, analyzer = get_components()
     
     try:
-        # Get user info optimized way (from session if available)
-        print(f"Fetching user info for {username}...")
-        user_info = osu_client.get_user_info(username, session)
+        # Get user info using the current user's token (no username needed)
+        print(f"Fetching user info for current user...")
+        user_info = osu_client.get_user_info()  # No username needed for current user
         if not user_info:
             return render_template('dashboard.html', 
                                  username=username,
@@ -143,11 +144,11 @@ def dashboard():
             print("No cached analysis found, performing new analysis")
         
         # Perform new analysis with user's OAuth token
-        print(f"Starting comprehensive analysis for {username}...")
+        print(f"Starting comprehensive analysis for current user...")
         start_time = time.time()
         
-        # Get comprehensive data using user's session (OAuth token)
-        user_data = osu_client.get_comprehensive_user_data(username, user_session=session)
+        # Get comprehensive data using user's token (no username needed)
+        user_data = osu_client.get_comprehensive_user_data()  # No username needed
         
         if not user_data or not user_data.get('user_info'):
             return render_template('dashboard.html',
@@ -208,44 +209,90 @@ def api_analyze(username):
     db, osu_client, analyzer = get_components()
     
     try:
-        # Check for recent analysis first
-        user_info = osu_client.get_user_info(username)
-        if not user_info:
-            return jsonify({'error': 'User not found'}), 404
-        
-        user_id = db.upsert_user(user_info)
-        
-        # Check cache
-        cached_analysis = db.get_latest_analysis(user_id)
-        if cached_analysis and is_cache_valid(cached_analysis, 30):
+        # If analyzing current user, use their token
+        if username == session.get('username'):
+            # Use current user's token
+            user_info = osu_client.get_user_info()
+            if not user_info:
+                return jsonify({'error': 'User not found'}), 404
+            
+            user_id = db.upsert_user(user_info)
+            
+            # Check cache
+            cached_analysis = db.get_latest_analysis(user_id)
+            if cached_analysis and is_cache_valid(cached_analysis, 30):
+                return jsonify({
+                    'user_info': user_info,
+                    'analysis': cached_analysis,
+                    'timestamp': cached_analysis['created_at'],
+                    'from_cache': True
+                })
+            
+            # Perform new analysis using current user's token
+            user_data = osu_client.get_comprehensive_user_data()
+            
+            if not user_data or not user_data.get('user_info'):
+                return jsonify({'error': 'Could not fetch comprehensive user data'}), 404
+            
+            # Perform analysis
+            analysis_result = analyzer.analyze_user_skill(user_data)
+            
+            # Save analysis result
+            db.save_analysis_result(user_id, analysis_result)
+            
+            # Update leaderboard
+            db.update_leaderboard(user_id, analysis_result)
+            
             return jsonify({
-                'user_info': user_info,
-                'analysis': cached_analysis,
-                'timestamp': cached_analysis['created_at'],
-                'from_cache': True
+                'user_info': user_data['user_info'],
+                'analysis': analysis_result,
+                'timestamp': datetime.now(pytz.UTC).isoformat(),
+                'from_cache': False
             })
         
-        # Perform new analysis
-        user_data = osu_client.get_comprehensive_user_data(username)
-        
-        if not user_data or not user_data.get('user_info'):
-            return jsonify({'error': 'Could not fetch comprehensive user data'}), 404
-        
-        # Perform analysis
-        analysis_result = analyzer.analyze_user_skill(user_data)
-        
-        # Save analysis result
-        db.save_analysis_result(user_id, analysis_result)
-        
-        # Update leaderboard
-        db.update_leaderboard(user_id, analysis_result)
-        
-        return jsonify({
-            'user_info': user_data['user_info'],
-            'analysis': analysis_result,
-            'timestamp': datetime.now(pytz.UTC).isoformat(),
-            'from_cache': False
-        })
+        else:
+            # For other users, we need to use client credentials (limited access)
+            # Create a new client instance with client credentials
+            client_osu = OsuClient(use_user_token=False)
+            
+            # Check for recent analysis first
+            user_info = client_osu.get_user_info(username)
+            if not user_info:
+                return jsonify({'error': 'User not found'}), 404
+            
+            user_id = db.upsert_user(user_info)
+            
+            # Check cache
+            cached_analysis = db.get_latest_analysis(user_id)
+            if cached_analysis and is_cache_valid(cached_analysis, 30):
+                return jsonify({
+                    'user_info': user_info,
+                    'analysis': cached_analysis,
+                    'timestamp': cached_analysis['created_at'],
+                    'from_cache': True
+                })
+            
+            # Perform new analysis using client credentials
+            user_data = client_osu.get_comprehensive_user_data(username)
+            
+            if not user_data or not user_data.get('user_info'):
+                return jsonify({'error': 'Could not fetch comprehensive user data'}), 404
+            
+            # Perform analysis
+            analysis_result = analyzer.analyze_user_skill(user_data)
+            
+            # Save analysis result
+            db.save_analysis_result(user_id, analysis_result)
+            
+            # Update leaderboard
+            db.update_leaderboard(user_id, analysis_result)
+            
+            return jsonify({
+                'user_info': user_data['user_info'],
+                'analysis': analysis_result,
+                'timestamp': datetime.now(pytz.UTC).isoformat(),
+                'from_cache': False
+            })
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -350,7 +397,8 @@ def debug_cache(username):
     db, osu_client, _ = get_components()
     
     try:
-        user_info = osu_client.get_user_info(username)
+        # Use current user's token since they're accessing their own data
+        user_info = osu_client.get_user_info()
         if not user_info:
             return jsonify({'error': 'User not found'}), 404
         
@@ -391,7 +439,8 @@ def api_user_history(username):
     db, osu_client, _ = get_components()
     
     try:
-        user_info = osu_client.get_user_info(username)
+        # Use current user's token since they're accessing their own data
+        user_info = osu_client.get_user_info()
         if not user_info:
             return jsonify({'error': 'User not found'}), 404
         
@@ -416,7 +465,14 @@ def api_user_position(username):
     db, osu_client, _ = get_components()
     
     try:
-        user_info = osu_client.get_user_info(username)
+        # If checking current user's position, use their token
+        if username == session.get('username'):
+            user_info = osu_client.get_user_info()
+        else:
+            # For other users, use client credentials
+            client_osu = OsuClient(use_user_token=False)
+            user_info = client_osu.get_user_info(username)
+        
         if not user_info:
             return jsonify({'error': 'User not found'}), 404
         
