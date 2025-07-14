@@ -10,4 +10,4 @@ def page_not_found(error):
                          user_avatar=session.get('avatar_url')), 404
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()
