@@ -1,142 +1,30 @@
-import sqlite3
-import json
 import os
-from datetime import datetime
-import pytz
+import json
+from datetime import datetime, timedelta  # Add timedelta import here
 from typing import Dict, List, Optional
-from contextlib import contextmanager
+from supabase import create_client, Client
+import pytz
 
-class Database:
-    def __init__(self, db_path: str = 'osu_skillcheck.db'):
-        self.db_path = db_path
-        self.init_database()
-    
-    @contextmanager
-    def get_connection(self):
-        """Context manager for database connections"""
-        conn = None
-        try:
-            conn = sqlite3.connect(self.db_path)
-            conn.row_factory = sqlite3.Row  # Enable dict-like access
-            yield conn
-        except sqlite3.Error as e:
-            if conn:
-                conn.rollback()
-            print(f"Database error: {e}")
-            raise
-        finally:
-            if conn:
-                conn.close()
-    
-    def init_database(self):
-        """Initialize database tables"""
-        try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                
-                # Users table
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS users (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        osu_id INTEGER UNIQUE NOT NULL,
-                        username TEXT NOT NULL,
-                        avatar_url TEXT,
-                        rank INTEGER,
-                        pp REAL,
-                        playcount INTEGER,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                ''')
-                
-                # Analysis results table
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS analysis_results (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        user_id INTEGER NOT NULL,
-                        recent_skill REAL,
-                        peak_skill REAL,
-                        skill_match REAL,
-                        confidence REAL,
-                        verdict TEXT,
-                        insights TEXT,
-                        confidence_factors TEXT,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (user_id) REFERENCES users (id)
-                    )
-                ''')
-                
-                # Cache table for API responses
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS api_cache (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        cache_key TEXT UNIQUE NOT NULL,
-                        cache_data TEXT,
-                        expires_at TIMESTAMP,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                ''')
-                
-                # Leaderboard table - Fixed with proper constraints
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS leaderboard (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        user_id INTEGER NOT NULL,
-                        recent_skill REAL DEFAULT 0,
-                        peak_skill REAL DEFAULT 0,
-                        skill_match REAL DEFAULT 0,
-                        confidence REAL DEFAULT 0,
-                        verdict TEXT DEFAULT 'unknown',
-                        skill_score REAL DEFAULT 0,
-                        rank_position INTEGER DEFAULT 0,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (user_id) REFERENCES users (id),
-                        UNIQUE(user_id)
-                    )
-                ''')
-                
-                # Create indexes for better performance
-                cursor.execute('''
-                    CREATE INDEX IF NOT EXISTS idx_leaderboard_skill_score 
-                    ON leaderboard (skill_score DESC)
-                ''')
-                
-                cursor.execute('''
-                    CREATE INDEX IF NOT EXISTS idx_leaderboard_user_id 
-                    ON leaderboard (user_id)
-                ''')
-                
-                cursor.execute('''
-                    CREATE INDEX IF NOT EXISTS idx_users_username 
-                    ON users (username COLLATE NOCASE)
-                ''')
-                
-                cursor.execute('''
-                    CREATE INDEX IF NOT EXISTS idx_users_osu_id 
-                    ON users (osu_id)
-                ''')
-                
-                conn.commit()
-                print("Database initialized successfully")
-        except Exception as e:
-            print(f"Failed to initialize database: {e}")
-            raise
+class SupabaseDatabase:
+    def __init__(self, url: str = None, key: str = None):
+        """Initialize Supabase client"""
+        self.url = url or os.getenv('SUPABASE_URL')
+        self.key = key or os.getenv('SUPABASE_ANON_KEY')
+        
+        if not self.url or not self.key:
+            raise ValueError("Supabase URL and key are required. Set SUPABASE_URL and SUPABASE_ANON_KEY environment variables.")
+        
+        self.client: Client = create_client(self.url, self.key)
+        print("Supabase client initialized successfully")
     
     def get_user_by_osu_id(self, osu_id: int) -> Optional[Dict]:
         """Get user by osu ID"""
         try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute('''
-                    SELECT id, osu_id, username, avatar_url, rank, pp, playcount, created_at, updated_at
-                    FROM users WHERE osu_id = ?
-                ''', (osu_id,))
-                
-                row = cursor.fetchone()
-                if row:
-                    return dict(row)
-                return None
+            response = self.client.table('users').select('*').eq('osu_id', osu_id).execute()
+            
+            if response.data:
+                return response.data[0]
+            return None
         except Exception as e:
             print(f"Error getting user by osu_id {osu_id}: {e}")
             return None
@@ -144,122 +32,98 @@ class Database:
     def upsert_user(self, user_data: Dict) -> Optional[int]:
         """Insert or update user data"""
         try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
+            # Check if user exists
+            existing_user = self.get_user_by_osu_id(user_data['id'])
+            
+            timestamp = datetime.now(pytz.UTC).isoformat()
+            
+            user_record = {
+                'osu_id': user_data['id'],
+                'username': user_data.get('username'),
+                'avatar_url': user_data.get('avatar_url'),
+                'rank': user_data.get('statistics', {}).get('global_rank'),
+                'pp': user_data.get('statistics', {}).get('pp'),
+                'playcount': user_data.get('statistics', {}).get('play_count'),
+                'updated_at': timestamp
+            }
+            
+            if existing_user:
+                # Update existing user
+                response = self.client.table('users').update(user_record).eq('osu_id', user_data['id']).execute()
+                print(f"Updated user {user_data.get('username')} (ID: {existing_user['id']})")
+                return existing_user['id']
+            else:
+                # Insert new user
+                user_record['created_at'] = timestamp
+                response = self.client.table('users').insert(user_record).execute()
                 
-                existing_user = self.get_user_by_osu_id(user_data['id'])
-                
-                if existing_user:
-                    # Update existing user
-                    cursor.execute('''
-                        UPDATE users 
-                        SET username = ?, avatar_url = ?, rank = ?, pp = ?, playcount = ?, updated_at = ?
-                        WHERE osu_id = ?
-                    ''', (
-                        user_data.get('username'),
-                        user_data.get('avatar_url'),
-                        user_data.get('statistics', {}).get('global_rank'),
-                        user_data.get('statistics', {}).get('pp'),
-                        user_data.get('statistics', {}).get('play_count'),
-                        datetime.now(pytz.UTC).strftime('%Y-%m-%d %H:%M:%S'),
-                        user_data['id']
-                    ))
-                    conn.commit()
-                    print(f"Updated user {user_data.get('username')} (ID: {existing_user['id']})")
-                    return existing_user['id']
-                else:
-                    # Insert new user
-                    cursor.execute('''
-                        INSERT INTO users (osu_id, username, avatar_url, rank, pp, playcount, created_at, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    ''', (
-                        user_data['id'],
-                        user_data.get('username'),
-                        user_data.get('avatar_url'),
-                        user_data.get('statistics', {}).get('global_rank'),
-                        user_data.get('statistics', {}).get('pp'),
-                        user_data.get('statistics', {}).get('play_count'),
-                        datetime.now(pytz.UTC).strftime('%Y-%m-%d %H:%M:%S'),
-                        datetime.now(pytz.UTC).strftime('%Y-%m-%d %H:%M:%S')
-                    ))
-                    conn.commit()
-                    user_id = cursor.lastrowid
+                if response.data:
+                    user_id = response.data[0]['id']
                     print(f"Created new user {user_data.get('username')} (ID: {user_id})")
                     return user_id
+                    
         except Exception as e:
             print(f"Error upserting user: {e}")
-            import traceback
-            traceback.print_exc()
             return None
     
     def save_analysis_result(self, user_id: int, analysis_result: Dict) -> Optional[int]:
         """Save analysis result to database"""
         try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                
-                # Use explicit UTC timestamp
-                timestamp = datetime.now(pytz.UTC).strftime('%Y-%m-%d %H:%M:%S')
-                
-                cursor.execute('''
-                    INSERT INTO analysis_results 
-                    (user_id, recent_skill, peak_skill, skill_match, confidence, verdict, insights, confidence_factors, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (
-                    user_id,
-                    analysis_result.get('recent_skill', 0),
-                    analysis_result.get('peak_skill', 0),
-                    analysis_result.get('skill_match', 0),
-                    analysis_result.get('confidence', 0),
-                    analysis_result.get('verdict', 'unknown'),
-                    json.dumps(analysis_result.get('insights', [])),
-                    json.dumps(analysis_result.get('confidence_factors', {})),
-                    timestamp
-                ))
-                conn.commit()
-                analysis_id = cursor.lastrowid
-                print(f"Saved analysis result (ID: {analysis_id}) for user_id: {user_id} at {timestamp}")
+            timestamp = datetime.now(pytz.UTC).isoformat()
+            
+            record = {
+                'user_id': user_id,
+                'recent_skill': analysis_result.get('recent_skill', 0),
+                'peak_skill': analysis_result.get('peak_skill', 0),
+                'skill_match': analysis_result.get('skill_match', 0),
+                'confidence': analysis_result.get('confidence', 0),
+                'verdict': analysis_result.get('verdict', 'unknown'),
+                'insights': json.dumps(analysis_result.get('insights', [])),
+                'confidence_factors': json.dumps(analysis_result.get('confidence_factors', {})),
+                'created_at': timestamp
+            }
+            
+            response = self.client.table('analysis_results').insert(record).execute()
+            
+            if response.data:
+                analysis_id = response.data[0]['id']
+                print(f"Saved analysis result (ID: {analysis_id}) for user_id: {user_id}")
                 return analysis_id
+                
         except Exception as e:
             print(f"Error saving analysis result: {e}")
-            import traceback
-            traceback.print_exc()
             return None
     
     def get_latest_analysis(self, user_id: int) -> Optional[Dict]:
         """Get latest analysis result for user"""
         try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute('''
-                    SELECT recent_skill, peak_skill, skill_match, confidence, verdict, insights, confidence_factors, created_at
-                    FROM analysis_results 
-                    WHERE user_id = ? 
-                    ORDER BY created_at DESC 
-                    LIMIT 1
-                ''', (user_id,))
+            response = (self.client.table('analysis_results')
+                       .select('*')
+                       .eq('user_id', user_id)
+                       .order('created_at', desc=True)
+                       .limit(1)
+                       .execute())
+            
+            if response.data:
+                row = response.data[0]
+                result = {
+                    'recent_skill': row['recent_skill'],
+                    'peak_skill': row['peak_skill'],
+                    'skill_match': row['skill_match'],
+                    'confidence': row['confidence'],
+                    'verdict': row['verdict'],
+                    'insights': json.loads(row['insights']) if row['insights'] else [],
+                    'confidence_factors': json.loads(row['confidence_factors']) if row['confidence_factors'] else {},
+                    'created_at': row['created_at']
+                }
+                print(f"Retrieved cached analysis for user_id {user_id}: {row['created_at']}")
+                return result
+            else:
+                print(f"No cached analysis found for user_id {user_id}")
+                return None
                 
-                row = cursor.fetchone()
-                if row:
-                    result = {
-                        'recent_skill': row['recent_skill'],
-                        'peak_skill': row['peak_skill'],
-                        'skill_match': row['skill_match'],
-                        'confidence': row['confidence'],
-                        'verdict': row['verdict'],
-                        'insights': json.loads(row['insights']) if row['insights'] else [],
-                        'confidence_factors': json.loads(row['confidence_factors']) if row['confidence_factors'] else {},
-                        'created_at': row['created_at']
-                    }
-                    print(f"Retrieved cached analysis for user_id {user_id}: {row['created_at']}")
-                    return result
-                else:
-                    print(f"No cached analysis found for user_id {user_id}")
-                    return None
         except Exception as e:
             print(f"Error getting latest analysis: {e}")
-            import traceback
-            traceback.print_exc()
             return None
     
     def update_leaderboard(self, user_id: int, analysis_result: Dict):
@@ -268,199 +132,148 @@ class Database:
             if not isinstance(analysis_result, dict):
                 raise TypeError(f"Expected dict for analysis_result, got {type(analysis_result).__name__}")
 
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                
-                # Calculate skill score with proper default values
-                recent_skill = analysis_result.get('recent_skill', 0) or 0
-                peak_skill = analysis_result.get('peak_skill', 0) or 0
-                skill_match = analysis_result.get('skill_match', 0) or 0
-                confidence = analysis_result.get('confidence', 0) or 0
-                verdict = analysis_result.get('verdict', 'unknown') or 'unknown'
-                
-                # Improved skill score calculation
-                skill_score = (recent_skill * 0.7 + peak_skill * 0.3)
-                
-                timestamp = datetime.now(pytz.UTC).strftime('%Y-%m-%d %H:%M:%S')
-                
-                cursor.execute('''
-                    INSERT OR REPLACE INTO leaderboard 
-                    (user_id, recent_skill, peak_skill, skill_match, confidence, verdict, skill_score, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (
-                    user_id, 
-                    recent_skill,
-                    peak_skill,
-                    skill_match,
-                    confidence,
-                    verdict,
-                    skill_score,
-                    timestamp
-                ))
-                
-                # Update rank positions more efficiently
-                self._update_leaderboard_ranks(cursor)
-                
-                conn.commit()
-                print(f"Updated leaderboard for user_id {user_id} with skill_score {skill_score:.2f}")
+            # Calculate skill score with proper default values
+            recent_skill = analysis_result.get('recent_skill', 0) or 0
+            peak_skill = analysis_result.get('peak_skill', 0) or 0
+            skill_match = analysis_result.get('skill_match', 0) or 0
+            confidence = analysis_result.get('confidence', 0) or 0
+            verdict = analysis_result.get('verdict', 'unknown') or 'unknown'
+            
+            # Improved skill score calculation
+            skill_score = (recent_skill * 0.7 + peak_skill * 0.3)
+            
+            timestamp = datetime.now(pytz.UTC).isoformat()
+            
+            record = {
+                'user_id': user_id,
+                'recent_skill': recent_skill,
+                'peak_skill': peak_skill,
+                'skill_match': skill_match,
+                'confidence': confidence,
+                'verdict': verdict,
+                'skill_score': skill_score,
+                'updated_at': timestamp
+            }
+            
+            # Use upsert to insert or update
+            response = self.client.table('leaderboard').upsert(record, on_conflict='user_id').execute()
+            
+            # Update rank positions
+            self._update_leaderboard_ranks()
+            
+            print(f"Updated leaderboard for user_id {user_id} with skill_score {skill_score:.2f}")
+            
         except Exception as e:
             print(f"Error updating leaderboard: {e}")
-            import traceback
-            traceback.print_exc()
 
-    def _update_leaderboard_ranks(self, cursor):
-        """Update all rank positions efficiently"""
+    def _update_leaderboard_ranks(self):
+        """Update all rank positions using PostgreSQL window function"""
         try:
-            cursor.execute('''
-                UPDATE leaderboard 
-                SET rank_position = (
-                    SELECT COUNT(*) 
-                    FROM leaderboard l2 
-                    WHERE l2.skill_score > leaderboard.skill_score
-                ) + 1
-            ''')
+            # PostgreSQL query to update ranks using window function
+            query = """
+            UPDATE leaderboard 
+            SET rank_position = ranked.rank
+            FROM (
+                SELECT id, 
+                       ROW_NUMBER() OVER (ORDER BY skill_score DESC) as rank
+                FROM leaderboard
+            ) ranked
+            WHERE leaderboard.id = ranked.id
+            """
+            
+            # Execute raw SQL using RPC (Remote Procedure Call)
+            response = self.client.rpc('update_leaderboard_ranks').execute()
+            
         except Exception as e:
             print(f"Error updating leaderboard ranks: {e}")
 
     def get_leaderboard(self, limit: int = 50, search_query: str = None, verdict_filter: str = None) -> List[Dict]:
         """Get leaderboard with user info and analysis data, with optional search and filtering"""
         try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                
-                # Build the query with optional filters
-                base_query = '''
-                    SELECT 
-                        l.rank_position,
-                        u.osu_id,
-                        u.username,
-                        u.avatar_url,
-                        u.rank as rank_global,
-                        u.pp,
-                        l.recent_skill,
-                        l.peak_skill,
-                        l.skill_match,
-                        l.confidence,
-                        l.verdict,
-                        l.skill_score,
-                        l.updated_at
-                    FROM leaderboard l
-                    JOIN users u ON l.user_id = u.id
-                '''
-                
-                conditions = []
-                params = []
-                
-                # Add search filter
-                if search_query:
-                    conditions.append("u.username LIKE ?")
-                    params.append(f"%{search_query}%")
-                
-                # Add verdict filter
-                if verdict_filter and verdict_filter != 'all':
-                    conditions.append("l.verdict = ?")
-                    params.append(verdict_filter)
-                
-                # Add WHERE clause if we have conditions
-                if conditions:
-                    base_query += " WHERE " + " AND ".join(conditions)
-                
-                # Add ordering and limit
-                base_query += " ORDER BY l.skill_score DESC LIMIT ?"
-                params.append(limit)
-                
-                cursor.execute(base_query, params)
-                
-                results = []
-                for row in cursor.fetchall():
-                    results.append({
-                        'rank': row['rank_position'] or 0,
-                        'osu_id': row['osu_id'],
-                        'username': row['username'],
-                        'avatar_url': row['avatar_url'],
-                        'rank_global': row['rank_global'],
-                        'pp': row['pp'],
-                        'recent_skill': row['recent_skill'] or 0,
-                        'peak_skill': row['peak_skill'] or 0,
-                        'skill_match': row['skill_match'] or 0,
-                        'confidence': row['confidence'] or 0,
-                        'verdict': row['verdict'] or 'unknown',
-                        'skill_score': row['skill_score'] or 0,
-                        'updated_at': row['updated_at']
-                    })
-                return results
+            # Start with base query
+            query = (self.client.table('leaderboard')
+                    .select('''
+                        rank_position,
+                        recent_skill,
+                        peak_skill,
+                        skill_match,
+                        confidence,
+                        verdict,
+                        skill_score,
+                        updated_at,
+                        users (
+                            osu_id,
+                            username,
+                            avatar_url,
+                            rank,
+                            pp
+                        )
+                    '''))
+            
+            # Add search filter
+            if search_query:
+                query = query.ilike('users.username', f'%{search_query}%')
+            
+            # Add verdict filter
+            if verdict_filter and verdict_filter != 'all':
+                query = query.eq('verdict', verdict_filter)
+            
+            # Execute query with ordering and limit
+            response = query.order('skill_score', desc=True).limit(limit).execute()
+            
+            results = []
+            for row in response.data:
+                user_data = row['users']
+                results.append({
+                    'rank': row['rank_position'] or 0,
+                    'osu_id': user_data['osu_id'],
+                    'username': user_data['username'],
+                    'avatar_url': user_data['avatar_url'],
+                    'rank_global': user_data['rank'],
+                    'pp': user_data['pp'],
+                    'recent_skill': row['recent_skill'] or 0,
+                    'peak_skill': row['peak_skill'] or 0,
+                    'skill_match': row['skill_match'] or 0,
+                    'confidence': row['confidence'] or 0,
+                    'verdict': row['verdict'] or 'unknown',
+                    'skill_score': row['skill_score'] or 0,
+                    'updated_at': row['updated_at']
+                })
+            return results
+            
         except Exception as e:
             print(f"Error getting leaderboard: {e}")
-            import traceback
-            traceback.print_exc()
             return []
 
     def get_leaderboard_stats(self, verdict_filter: str = None) -> Dict:
         """Get leaderboard statistics"""
         try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                
-                # Build base query for stats
-                base_conditions = []
-                params = []
-                
-                if verdict_filter and verdict_filter != 'all':
-                    base_conditions.append("l.verdict = ?")
-                    params.append(verdict_filter)
-                
-                where_clause = " WHERE " + " AND ".join(base_conditions) if base_conditions else ""
-                
-                # Total players
-                cursor.execute(f'''
-                    SELECT COUNT(*) as count 
-                    FROM leaderboard l
-                    JOIN users u ON l.user_id = u.id
-                    {where_clause}
-                ''', params)
-                total_players = cursor.fetchone()['count']
-                
-                if total_players == 0:
-                    return {
-                        'total_players': 0,
-                        'avg_skill': 0,
-                        'top_skill': 0,
-                        'avg_confidence': 0
-                    }
-                
-                # Average skill
-                cursor.execute(f'''
-                    SELECT AVG(l.recent_skill) as avg_skill
-                    FROM leaderboard l
-                    JOIN users u ON l.user_id = u.id
-                    {where_clause}
-                ''', params)
-                avg_skill = cursor.fetchone()['avg_skill'] or 0
-                
-                # Top skill
-                cursor.execute(f'''
-                    SELECT MAX(l.recent_skill) as top_skill
-                    FROM leaderboard l
-                    JOIN users u ON l.user_id = u.id
-                    {where_clause}
-                ''', params)
-                top_skill = cursor.fetchone()['top_skill'] or 0
-                
-                # Average confidence
-                cursor.execute(f'''
-                    SELECT AVG(l.confidence) as avg_confidence
-                    FROM leaderboard l
-                    JOIN users u ON l.user_id = u.id
-                    {where_clause}
-                ''', params)
-                avg_confidence = cursor.fetchone()['avg_confidence'] or 0
-                
+            # Build query with optional filter
+            query = self.client.table('leaderboard').select('recent_skill, confidence')
+            
+            if verdict_filter and verdict_filter != 'all':
+                query = query.eq('verdict', verdict_filter)
+            
+            response = query.execute()
+            
+            if not response.data:
                 return {
-                    'total_players': total_players,
-                    'avg_skill': avg_skill,
-                    'top_skill': top_skill,
-                    'avg_confidence': avg_confidence
+                    'total_players': 0,
+                    'avg_skill': 0,
+                    'top_skill': 0,
+                    'avg_confidence': 0
                 }
+            
+            skills = [row['recent_skill'] for row in response.data if row['recent_skill']]
+            confidences = [row['confidence'] for row in response.data if row['confidence']]
+            
+            return {
+                'total_players': len(response.data),
+                'avg_skill': sum(skills) / len(skills) if skills else 0,
+                'top_skill': max(skills) if skills else 0,
+                'avg_confidence': sum(confidences) / len(confidences) if confidences else 0
+            }
+            
         except Exception as e:
             print(f"Error getting leaderboard stats: {e}")
             return {'total_players': 0, 'avg_skill': 0, 'top_skill': 0, 'avg_confidence': 0}
@@ -468,29 +281,28 @@ class Database:
     def get_user_stats(self) -> Dict:
         """Get database statistics"""
         try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                
-                # Total users
-                cursor.execute('SELECT COUNT(*) as count FROM users')
-                total_users = cursor.fetchone()['count']
-                
-                # Total analyses
-                cursor.execute('SELECT COUNT(*) as count FROM analysis_results')
-                total_analyses = cursor.fetchone()['count']
-                
-                # Recent analyses (last 7 days)
-                cursor.execute('''
-                    SELECT COUNT(*) as count FROM analysis_results 
-                    WHERE created_at > datetime('now', '-7 days')
-                ''')
-                recent_analyses = cursor.fetchone()['count']
-                
-                return {
-                    'total_users': total_users,
-                    'total_analyses': total_analyses,
-                    'recent_analyses': recent_analyses
-                }
+            # Get total users
+            users_response = self.client.table('users').select('id', count='exact').execute()
+            total_users = users_response.count
+            
+            # Get total analyses
+            analyses_response = self.client.table('analysis_results').select('id', count='exact').execute()
+            total_analyses = analyses_response.count
+            
+            # Get recent analyses (last 7 days) - FIXED: Use datetime.timedelta instead of pytz.timedelta
+            seven_days_ago = (datetime.now(pytz.UTC) - timedelta(days=7)).isoformat()
+            recent_response = (self.client.table('analysis_results')
+                             .select('id', count='exact')
+                             .gte('created_at', seven_days_ago)
+                             .execute())
+            recent_analyses = recent_response.count
+            
+            return {
+                'total_users': total_users,
+                'total_analyses': total_analyses,
+                'recent_analyses': recent_analyses
+            }
+            
         except Exception as e:
             print(f"Error getting user stats: {e}")
             return {'total_users': 0, 'total_analyses': 0, 'recent_analyses': 0}
@@ -498,45 +310,98 @@ class Database:
     def clear_old_analyses(self, days_old: int = 30):
         """Clear analyses older than specified days"""
         try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute('''
-                    DELETE FROM analysis_results 
-                    WHERE created_at < datetime('now', '-{} days')
-                '''.format(days_old))
-                
-                deleted_count = cursor.rowcount
-                conn.commit()
-                print(f"Deleted {deleted_count} old analysis records")
-                return deleted_count
+            if days_old <= 0:
+                raise ValueError("days_old must be greater than 0. Use wipe_all_analyses() for complete deletion.")
+            
+            # For cleanup operation with date filter
+            cutoff_date = (datetime.now(pytz.UTC) - timedelta(days=days_old)).isoformat()
+            print(f"Attempting to delete analyses older than {cutoff_date} ({days_old} days)")
+            
+            # First, check how many records would be deleted
+            check_response = self.client.table('analysis_results').select('id', count='exact').lt('created_at', cutoff_date).execute()
+            records_to_delete = check_response.count
+            print(f"Found {records_to_delete} records to delete")
+            
+            if records_to_delete == 0:
+                print("No old records found to delete")
+                return 0
+            
+            # Delete the records
+            response = self.client.table('analysis_results').delete().lt('created_at', cutoff_date).execute()
+            
+            # Verify deletion by checking the count again
+            verify_response = self.client.table('analysis_results').select('id', count='exact').lt('created_at', cutoff_date).execute()
+            remaining_old_records = verify_response.count
+            actual_deleted = records_to_delete - remaining_old_records
+            
+            print(f"Successfully deleted {actual_deleted} old analysis records")
+            return actual_deleted
+            
         except Exception as e:
             print(f"Error clearing old analyses: {e}")
+            import traceback
+            traceback.print_exc()
             return 0
-    
+
+    def wipe_all_analyses(self):
+        """Wipe ALL analysis records from the database"""
+        try:
+            print("WIPING ALL analysis records from database")
+            
+            # First, check how many total records exist
+            check_response = self.client.table('analysis_results').select('id', count='exact').execute()
+            total_records = check_response.count
+            print(f"Found {total_records} total records to wipe")
+            
+            if total_records == 0:
+                print("No records found to wipe")
+                return 0
+            
+            # Delete ALL records - using a condition that matches everything
+            response = self.client.table('analysis_results').delete().neq('id', 0).execute()
+            
+            # Verify complete deletion
+            verify_response = self.client.table('analysis_results').select('id', count='exact').execute()
+            remaining_records = verify_response.count
+            actual_deleted = total_records - remaining_records
+            
+            print(f"Successfully wiped {actual_deleted} analysis records")
+            
+            # Also clear the leaderboard since analyses are gone
+            print("Clearing leaderboard entries...")
+            leaderboard_response = self.client.table('leaderboard').delete().neq('id', 0).execute()
+            print("Leaderboard cleared")
+            
+            return actual_deleted
+            
+        except Exception as e:
+            print(f"Error wiping all analyses: {e}")
+            import traceback
+            traceback.print_exc()
+            return 0
+
     def get_analysis_history(self, user_id: int, limit: int = 10) -> List[Dict]:
         """Get analysis history for a user"""
         try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute('''
-                    SELECT recent_skill, peak_skill, skill_match, confidence, verdict, created_at
-                    FROM analysis_results 
-                    WHERE user_id = ? 
-                    ORDER BY created_at DESC 
-                    LIMIT ?
-                ''', (user_id, limit))
-                
-                results = []
-                for row in cursor.fetchall():
-                    results.append({
-                        'recent_skill': row['recent_skill'],
-                        'peak_skill': row['peak_skill'],
-                        'skill_match': row['skill_match'],
-                        'confidence': row['confidence'],
-                        'verdict': row['verdict'],
-                        'created_at': row['created_at']
-                    })
-                return results
+            response = (self.client.table('analysis_results')
+                       .select('recent_skill, peak_skill, skill_match, confidence, verdict, created_at')
+                       .eq('user_id', user_id)
+                       .order('created_at', desc=True)
+                       .limit(limit)
+                       .execute())
+            
+            results = []
+            for row in response.data:
+                results.append({
+                    'recent_skill': row['recent_skill'],
+                    'peak_skill': row['peak_skill'],
+                    'skill_match': row['skill_match'],
+                    'confidence': row['confidence'],
+                    'verdict': row['verdict'],
+                    'created_at': row['created_at']
+                })
+            return results
+            
         except Exception as e:
             print(f"Error getting analysis history: {e}")
             return []
@@ -544,33 +409,62 @@ class Database:
     def get_user_leaderboard_position(self, user_id: int) -> Optional[Dict]:
         """Get user's current leaderboard position"""
         try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute('''
-                    SELECT 
-                        l.rank_position,
-                        l.recent_skill,
-                        l.peak_skill,
-                        l.skill_match,
-                        l.confidence,
-                        l.verdict,
-                        l.skill_score
-                    FROM leaderboard l
-                    WHERE l.user_id = ?
-                ''', (user_id,))
-                
-                row = cursor.fetchone()
-                if row:
-                    return {
-                        'rank': row['rank_position'],
-                        'recent_skill': row['recent_skill'],
-                        'peak_skill': row['peak_skill'],
-                        'skill_match': row['skill_match'],
-                        'confidence': row['confidence'],
-                        'verdict': row['verdict'],
-                        'skill_score': row['skill_score']
-                    }
-                return None
+            response = (self.client.table('leaderboard')
+                       .select('rank_position, recent_skill, peak_skill, skill_match, confidence, verdict, skill_score')
+                       .eq('user_id', user_id)
+                       .execute())
+            
+            if response.data:
+                row = response.data[0]
+                return {
+                    'rank': row['rank_position'],
+                    'recent_skill': row['recent_skill'],
+                    'peak_skill': row['peak_skill'],
+                    'skill_match': row['skill_match'],
+                    'confidence': row['confidence'],
+                    'verdict': row['verdict'],
+                    'skill_score': row['skill_score']
+                }
+            return None
+            
         except Exception as e:
             print(f"Error getting user leaderboard position: {e}")
+            return None
+
+    # Admin role methods
+    def get_user_role(self, user_id: int) -> str:
+        """Get user's role"""
+        try:
+            response = self.client.table('users').select('role').eq('id', user_id).execute()
+            
+            if response.data:
+                return response.data[0].get('role', 'user')
+            return 'user'
+        except Exception as e:
+            print(f"Error getting user role: {e}")
+            return 'user'
+
+    def is_user_admin(self, user_id: int) -> bool:
+        """Check if user is admin"""
+        return self.get_user_role(user_id) == 'admin'
+
+    def set_user_role(self, user_id: int, role: str) -> bool:
+        """Set user's role (admin only operation)"""
+        try:
+            response = self.client.table('users').update({'role': role}).eq('id', user_id).execute()
+            return bool(response.data)
+        except Exception as e:
+            print(f"Error setting user role: {e}")
+            return False
+
+    def get_user_by_username(self, username: str) -> Optional[Dict]:
+        """Get user by username"""
+        try:
+            response = self.client.table('users').select('*').eq('username', username).execute()
+            
+            if response.data:
+                return response.data[0]
+            return None
+        except Exception as e:
+            print(f"Error getting user by username {username}: {e}")
             return None

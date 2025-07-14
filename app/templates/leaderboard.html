@@ -179,6 +179,18 @@
       letter-spacing: 0.5px;
     }
     
+    .verdict-insufficient
+    {
+        background: rgba(128, 128, 128, 0.2);
+        color: #aaaaaa;
+        border: 1px solid rgba(128, 128, 128, 0.3);
+    }
+
+    .verdict-expired {
+        background: rgba(128, 128, 128, 0.2);
+        color: #aaaaaa;
+        border: 1px solid rgba(128, 128, 128, 0.3);
+      }
     .verdict-accurate {
       background: rgba(0, 255, 127, 0.2);
       color: #00ff7f;
@@ -272,8 +284,9 @@
     }
     
     .filter-select:focus {
-      outline: none;
-      border-color: var(--color-primary);
+      background-color: #222; /* dark background */
+      color: white; /* readable text */
+      border: 1px solid rgba(255, 255, 255, 0.2);
     }
     
     .last-updated {
@@ -340,6 +353,12 @@
       
       .skill-match { display: none; }
     }
+    .cache-indicator {
+      font-size: 12px;
+      color: var(--color-text-light);
+      margin-top: 10px;
+      opacity: 0.7;
+    }
   </style>
 </head>
 <body>
@@ -349,18 +368,19 @@
         <a href="/" class="logo">osu!Skill</a>
         <ul class="nav-links">
           <li><a href="/">Home</a></li>
+          <li><a href="#about">Wiki</a></li>
+          <li><a href="#contact">Donate</a></li>
           <li><a href="/leaderboard">Leaderboard</a></li>
-          {% if username %}
           <li class="user-area">
-            <a href="/dashboard" class="user-card">
-              <img src="{{ user_avatar or 'https://a.ppy.sh/default.png' }}" alt="User Avatar" class="user-avatar" />
-              <span class="username">{{ username }}</span>
+            <a href="{{ '/dashboard' if username else '/login' }}" class="user-card">
+              <img src="{{ user_avatar or 'https://a.ppy.sh/14752899?1628953484.png' }}" 
+                   alt="User Avatar" class="user-avatar">
+              <span class="username">{{ username or 'Guest' }}</span>
             </a>
-            <a href="{{ url_for('auth.logout') }}" class="logout-link">Logout</a>
+            {% if username %}
+              <a href="{{ url_for('auth.logout') }}" class="logout-link">Logout</a>
+            {% endif %}
           </li>
-          {% else %}
-          <li><a href="/login" class="btn btn-primary">Login</a></li>
-          {% endif %}
         </ul>
       </nav>
     </div>
@@ -370,7 +390,13 @@
     <div class="leaderboard-container">
       <div class="leaderboard-header">
         <h1 class="leaderboard-title">Skill Leaderboard</h1>
-        <p class="leaderboard-subtitle">Top players ranked by recent skill performance</p>
+        <p class="leaderboard-subtitle">
+          Top players ranked by recent skill performance.<br />
+        </p>
+        <div class="cache-indicator">
+          <strong>Note:</strong> Data shown is based on the latest skill analysis for each user on the database and is not updated in real-time.
+          Users must log in or refresh their analysis to update their stats and rankings.
+        </div>
       </div>
 
       <div class="stats-summary">
@@ -414,13 +440,27 @@
 
       <div class="last-updated" id="last-updated"></div>
     </div>
-  </main>
 
+  </main>
+    
+    <footer>
+      <div class="container footer-container">
+        <p class="footer-left">&copy; 2025 osu!Skill. Built for the osu! community with ❤️</p>
+        <div class="footer-right">
+          <a href="https://www.youtube.com/@snovynosu" target="_blank" rel="noopener" aria-label="YouTube">
+            <img src="{{ url_for('static', filename='icons/youtube.svg') }}" alt="YouTube" class="footer-icon" />
+          </a>
+          <a href="https://github.com/snovn/osu-skill" target="_blank" rel="noopener" aria-label="GitHub">
+            <img src="{{ url_for('static', filename='icons/github.svg') }}" alt="GitHub" class="footer-icon" />
+          </a>
+        </div>
+      </div>
+    </footer>
   <script>
     let leaderboardData = [];
     let currentFilter = 'all';
     let currentLimit = 50;
-    let currentUsername = '{{ username }}';
+    let currentUsername = '{{ username or "" }}';
     
     async function loadLeaderboard() {
       try {
@@ -541,17 +581,34 @@
     function renderPlayerRow(player, isCurrentUser) {
       const rowClass = isCurrentUser ? 'table-row current-user-row' : 'table-row';
       const rankClass = isCurrentUser ? 'rank-cell current-user-rank' : 
-                       (player.rank <= 3 ? `rank-cell rank-${player.rank}` : 'rank-cell');
+                      (player.rank <= 3 ? `rank-cell rank-${player.rank}` : 'rank-cell');
       const nameClass = isCurrentUser ? 'player-name current-user-name' : 'player-name';
       const avatarClass = isCurrentUser ? 'player-avatar current-user-avatar' : 'player-avatar';
       const skillClass = isCurrentUser ? 'skill-cell current-user-skill' : 'skill-cell';
-      
+
+      const isExpired = player.timestamp && (
+          Date.now() - new Date(player.timestamp).getTime() > 24 * 60 * 60 * 1000
+      );
+
+      console.log(`[DEBUG] ${player.username}:`, {
+        timestamp: player.timestamp,
+        expired: isExpired,
+        timeAgo: Date.now() - new Date(player.timestamp).getTime()
+      });
+
+      const verdictLabel = isExpired ? 'Expired' : formatVerdict(player.verdict);
+      const verdictClass = isExpired ? 'verdict-expired' : `verdict-${player.verdict}`;
+
+      // Fix avatar URL fallback
+      const avatarUrl = player.avatar_url || 'https://a.ppy.sh/14752899?1628953484.png';
+
       return `
         <div class="${rowClass}">
           <div class="${rankClass}">#${player.rank}</div>
           <div class="player-cell">
-            <img src="${player.avatar_url || 'https://a.ppy.sh/default.png'}" 
-                 alt="${player.username}" class="${avatarClass}" />
+            <img src="${avatarUrl}" 
+                alt="${player.username}" class="${avatarClass}" 
+                onerror="this.src='https://a.ppy.sh/14752899?1628953484.png'" />
             <div class="player-info">
               <div class="${nameClass}">
                 ${player.username}
@@ -565,8 +622,8 @@
           <div class="${skillClass} skill-match">${player.skill_match.toFixed(1)}%</div>
           <div class="${skillClass} confidence">${player.confidence.toFixed(1)}%</div>
           <div class="verdict-cell">
-            <span class="verdict-badge verdict-${player.verdict}">
-              ${formatVerdict(player.verdict)}
+            <span class="verdict-badge ${verdictClass}">
+              ${verdictLabel}
             </span>
           </div>
         </div>

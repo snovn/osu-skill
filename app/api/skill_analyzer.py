@@ -418,8 +418,14 @@ class SkillAnalyzer:
         """Determine overall verdict with improved logic"""
         
         # Check for insufficient data - more lenient
+# Check if user has no recent plays but valid top plays → inactive
+        if len(valid_recent_plays) == 0 and len(valid_top_plays) >= self.min_top_plays:
+            return 'inactive'
+
+        # Check for insufficient data
         if len(valid_recent_plays) < self.min_recent_plays or len(valid_top_plays) < self.min_top_plays:
             return 'insufficient'
+
 
         # More reasonable confidence requirements
         if confidence < self.min_confidence_threshold:
@@ -430,6 +436,8 @@ class SkillAnalyzer:
                 return 'insufficient'
 
         # Verdict thresholds (kept reasonable)
+        skill_match = round(skill_match, 1)
+
         if skill_match >= 92:
             return 'accurate'
         elif skill_match >= 75:

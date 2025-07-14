@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>404 - Page Not Found | osu!Skill</title>
+  <!-- SEO -->
+  <meta name="description" content="Page not found - osu!Skill" />
+  <meta name="robots" content="noindex, nofollow" />
+
+  <!-- Favicon (optional) -->
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon" />
+
+  <!-- Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+
+  <style>
+    /* Additional styles for 404 page */
+    .error-content {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      text-align: center;
+      min-height: 75vh;
+      padding: 40px 20px;
+    }
+
+    .error-number {
+      font-size: 120px;
+      font-weight: 700;
+      color: var(--color-primary);
+      text-shadow: 0 0 30px rgba(255, 102, 170, 0.3);
+      margin-bottom: 20px;
+      line-height: 1;
+    }
+
+    .error-message {
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--color-text);
+      margin-bottom: 16px;
+    }
+
+    .error-description {
+      font-size: 17px;
+      color: var(--color-text-light);
+      line-height: 1.6;
+      margin-bottom: 40px;
+      max-width: 500px;
+    }
+
+    .error-actions {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--color-text);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: none;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .error-mascot {
+      width: 180px;
+      height: auto;
+      margin-bottom: 30px;
+      filter: drop-shadow(0 0 20px rgba(255, 107, 157, 0.2));
+      opacity: 0.8;
+    }
+
+    /* Floating animation for mascot */
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .error-mascot {
+      animation: float 3s ease-in-out infinite;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .error-number {
+        font-size: 80px;
+      }
+      
+      .error-message {
+        font-size: 24px;
+      }
+      
+      .error-actions {
+        flex-direction: column;
+        align-items: center;
+      }
+      
+      .error-mascot {
+        width: 120px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <nav>
+        <a href="/" class="logo">osu!Skill</a>
+        <ul class="nav-links">
+          <li><a href="/">Home</a></li>
+          <li><a href="#about">Wiki</a></li>
+          <li><a href="#contact">Donate</a></li>
+          <li><a href="/leaderboard">Leaderboard</a></li>
+          <!-- Wrap user card and logout in a container -->
+          <li class="user-area">
+            <a href="{{ '/dashboard' if username else '/login' }}" class="user-card">
+              <img
+                src="{{ user_avatar or 'https://a.ppy.sh/14752899?1628953484.png' }}"
+                alt="User Avatar"
+                class="user-avatar"
+              />
+              <span class="username">{{ username or 'Guest' }}</span>
+            </a>
+            {% if username %}
+              <a href="{{ url_for('auth.logout') }}" class="logout-link">Logout</a>
+            {% endif %}
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="error-content">
+      <img
+        class="error-mascot"
+        src="https://i.ppy.sh/8662e30071c8d108af6bf3d3bc5f9d4ebd9750f5/68747470733a2f2f6f73752e7070792e73682f77696b692f696d616765732f4d6173636f74732f696d672f4d6f6368612e706e67"
+        alt="osu! Mascot"
+      />
+      
+      <div class="error-number">727</div>
+      <h1 class="error-message">Page Not Found</h1>
+      <p class="error-description">
+        Oops! The page you're looking for doesn't exist. It might have been moved, deleted, or you entered the wrong URL.
+      </p>
+      
+      <div class="error-actions">
+        <a href="javascript:history.back()" class="btn btn-primary">Go Back</a>
+        {% if username %}
+          <a href="/dashboard" class="btn btn-secondary">Dashboard</a>
+        {% else %}
+          <a href="/login" class="btn btn-secondary">Login</a>
+        {% endif %}
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container footer-container">
+      <p class="footer-left">&copy; 2025 osu!Skill. Built for the osu! community with ❤️</p>
+      <div class="footer-right">
+        <a href="https://www.youtube.com/@snovynosu" target="_blank" rel="noopener" aria-label="YouTube">
+          <img src="{{ url_for('static', filename='icons/youtube.svg') }}" alt="YouTube" class="footer-icon" />
+        </a>
+        <a href="https://github.com/snovn/osu-skill" target="_blank" rel="noopener" aria-label="GitHub">
+          <img src="{{ url_for('static', filename='icons/github.svg') }}" alt="GitHub" class="footer-icon" />
+        </a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

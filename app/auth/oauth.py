@@ -16,6 +16,7 @@ def index():
     # Render index page with username/avatar from session if logged in
     return render_template('index.html', username=session.get('username'), user_avatar=session.get('avatar_url'))
 
+
 @auth_bp.route('/login')
 def login():
     return redirect(

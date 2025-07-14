@@ -1,5 +1,7 @@
 from flask import Blueprint, render_template, session, redirect, url_for, jsonify, request
 from datetime import datetime, timedelta
+from functools import wraps
+
 import os
 import sys
 import threading
@@ -11,7 +13,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.api.osu_client import OsuClient
 from app.api.skill_analyzer import SkillAnalyzer
-from app.models.database import Database
+from app.models.database import SupabaseDatabase  # Changed from Database to SupabaseDatabase
 
 analysis_bp = Blueprint('analysis', __name__)
 
@@ -21,13 +23,37 @@ _osu_client = None
 _analyzer = None
 _lock = threading.Lock()
 
+ADMIN_USERS = {
+    'snovn',  # Replace with your actual osu! username
+    # Add more admin usernames as needed
+}
+def is_admin(username=None):
+    """Check if user is an admin"""
+    if username is None:
+        username = session.get('username')
+    
+    return username in ADMIN_USERS
+
+def admin_required(f):
+    """Decorator to require admin access"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'username' not in session:
+            return jsonify({'error': 'Not authenticated'}), 401
+        
+        if not is_admin(session['username']):
+            return jsonify({'error': 'Admin access required'}), 403
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
 def get_components():
     """Get singleton instances of components"""
     global _db, _osu_client, _analyzer
     
     with _lock:
         if _db is None:
-            _db = Database()
+            _db = SupabaseDatabase()  # Changed from Database() to SupabaseDatabase()
         if _osu_client is None:
             _osu_client = OsuClient()
         if _analyzer is None:
@@ -44,14 +70,14 @@ def is_cache_valid(cached_analysis, cache_duration_minutes=30):
         # Parse the timestamp from database
         analysis_time_str = cached_analysis['created_at']
         
-        # Handle different timestamp formats
+        # Handle different timestamp formats - Supabase uses ISO format
         if 'T' in analysis_time_str:
             # ISO format with T separator
             if analysis_time_str.endswith('Z'):
                 analysis_time_str = analysis_time_str.replace('Z', '+00:00')
             analysis_time = datetime.fromisoformat(analysis_time_str)
         else:
-            # SQLite datetime format
+            # Fallback for other formats
             analysis_time = datetime.strptime(analysis_time_str, '%Y-%m-%d %H:%M:%S')
         
         # Make sure we're comparing timezone-aware datetimes
@@ -136,7 +162,7 @@ def dashboard():
                                  username=username,
                                  error="Failed to analyze user skill")
         
-        # Save analysis result with explicit commit
+        # Save analysis result
         print(f"Saving analysis result for user_id: {user_id}")
         analysis_id = db.save_analysis_result(user_id, analysis_result)
         
@@ -146,12 +172,7 @@ def dashboard():
             print("Failed to save analysis result")
         
         # Update leaderboard
-        db.save_analysis_result(user_id, analysis_result)
-
-        # Update leaderboard
         db.update_leaderboard(user_id, analysis_result)
-
-
         
         print(f"Analysis completed in {time.time() - start_time:.2f} seconds")
         
@@ -217,12 +238,7 @@ def api_analyze(username):
         db.save_analysis_result(user_id, analysis_result)
         
         # Update leaderboard
-        # Save analysis result
-        db.save_analysis_result(user_id, analysis_result)
-
-        # Update leaderboard
         db.update_leaderboard(user_id, analysis_result)
-
         
         return jsonify({
             'user_info': user_data['user_info'],
@@ -240,43 +256,51 @@ def leaderboard():
     """Show leaderboard page"""
     db, _, _ = get_components()
     
-    # Get leaderboard data
-    leaderboard_data = db.get_leaderboard(50)
+    # Get query parameters for search and filtering
+    search_query = request.args.get('search', '')
+    verdict_filter = request.args.get('verdict', 'all')
+    
+    # Get leaderboard data with filters
+    leaderboard_data = db.get_leaderboard(50, search_query, verdict_filter)
     
     # Get database stats
     stats = db.get_user_stats()
     
-    return render_template('leaderboard.html',
-                         leaderboard=leaderboard_data,
-                         stats=stats,
-                         username=session.get('username'))
+    # Get leaderboard stats with filter
+    leaderboard_stats = db.get_leaderboard_stats(verdict_filter)
+    
+    return render_template(
+        'leaderboard.html',
+        leaderboard=leaderboard_data,
+        stats=stats,
+        leaderboard_stats=leaderboard_stats,
+        search_query=search_query,
+        verdict_filter=verdict_filter,
+        username=session.get('username'),
+        user_avatar=session.get('avatar_url')
+    )
 
 @analysis_bp.route('/api/leaderboard')
 def api_leaderboard():
     """API endpoint for leaderboard data"""
     db, _, _ = get_components()
     limit = request.args.get('limit', 50, type=int)
+    search_query = request.args.get('search', '')
+    verdict_filter = request.args.get('verdict', 'all')
     
-    leaderboard_data = db.get_leaderboard(limit)
+    leaderboard_data = db.get_leaderboard(limit, search_query, verdict_filter)
     
-    # Calculate stats
-    if leaderboard_data:
-        total_players = len(leaderboard_data)
-        avg_skill = sum(p['recent_skill'] for p in leaderboard_data) / total_players
-        top_skill = max(p['recent_skill'] for p in leaderboard_data)
-        avg_confidence = sum(p['confidence'] for p in leaderboard_data) / total_players
-    else:
-        total_players = avg_skill = top_skill = avg_confidence = 0
+    # Get leaderboard stats
+    leaderboard_stats = db.get_leaderboard_stats(verdict_filter)
     
     return jsonify({
         'leaderboard': leaderboard_data,
-        'stats': {
-            'total_players': total_players,
-            'avg_skill': avg_skill,
-            'top_skill': top_skill,
-            'avg_confidence': avg_confidence
-        },
-        'total_entries': len(leaderboard_data)
+        'stats': leaderboard_stats,
+        'total_entries': len(leaderboard_data),
+        'filters': {
+            'search': search_query,
+            'verdict': verdict_filter
+        }
     })
 
 @analysis_bp.route('/api/status')
@@ -285,14 +309,14 @@ def api_status():
     db, osu_client, _ = get_components()
     
     try:
-        # Test database connection
+        # Test database connection by getting stats
         stats = db.get_user_stats()
         
         # Test osu! API connection
         api_status = osu_client.get_client_credentials_token()
         
-        # Get cache stats
-        cache_stats = osu_client.get_cache_stats()
+        # Get cache stats if available
+        cache_stats = getattr(osu_client, 'get_cache_stats', lambda: {})()
         
         return jsonify({
             'database': {
@@ -300,7 +324,7 @@ def api_status():
                 'stats': stats
             },
             'osu_api': {
-                'connected': api_status,
+                'connected': bool(api_status),
                 'cache_stats': cache_stats
             },
             'timestamp': datetime.now(pytz.UTC).isoformat()
@@ -348,6 +372,107 @@ def debug_cache(username):
                 'has_cache': False,
                 'cache_valid': False
             })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Additional API routes for enhanced functionality
+
+@analysis_bp.route('/api/user/<username>/history')
+def api_user_history(username):
+    """API endpoint to get user's analysis history"""
+    if 'username' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    # Security: Only allow users to access their own history
+    if session['username'] != username:
+        return jsonify({'error': 'Access denied'}), 403
+    
+    db, osu_client, _ = get_components()
+    
+    try:
+        user_info = osu_client.get_user_info(username)
+        if not user_info:
+            return jsonify({'error': 'User not found'}), 404
+        
+        user_id = db.upsert_user(user_info)
+        history = db.get_analysis_history(user_id, 10)
+        
+        return jsonify({
+            'username': username,
+            'history': history,
+            'total_entries': len(history)
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@analysis_bp.route('/api/user/<username>/position')
+def api_user_position(username):
+    """API endpoint to get user's leaderboard position"""
+    if 'username' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    db, osu_client, _ = get_components()
+    
+    try:
+        user_info = osu_client.get_user_info(username)
+        if not user_info:
+            return jsonify({'error': 'User not found'}), 404
+        
+        user_id = db.upsert_user(user_info)
+        position = db.get_user_leaderboard_position(user_id)
+        
+        return jsonify({
+            'username': username,
+            'position': position
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@analysis_bp.route('/api/admin/cleanup')
+@admin_required
+def api_cleanup():
+    """API endpoint to clean up old analyses (admin only)"""
+    db, _, _ = get_components()
+    
+    try:
+        days_old = request.args.get('days', 30, type=int)
+        
+        # Validate days_old parameter
+        if days_old <= 0:
+            return jsonify({
+                'error': 'days parameter must be greater than 0. Use /api/admin/wipe for complete deletion.'
+            }), 400
+        
+        deleted_count = db.clear_old_analyses(days_old)
+        
+        return jsonify({
+            'deleted_count': deleted_count,
+            'days_old': days_old,
+            'operation': 'cleanup',
+            'timestamp': datetime.now(pytz.UTC).isoformat()
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@analysis_bp.route('/api/admin/wipe')
+@admin_required
+def api_wipe():
+    """API endpoint to wipe ALL analyses (admin only)"""
+    db, _, _ = get_components()
+
+    try:
+        deleted_count = db.wipe_all_analyses()
+        
+        return jsonify({
+            'deleted_count': deleted_count,
+            'operation': 'wipe',
+            'wiped_all': True,
+            'timestamp': datetime.now(pytz.UTC).isoformat()
+        })
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
