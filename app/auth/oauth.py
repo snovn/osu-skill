@@ -39,16 +39,27 @@ def callback():
     }).json()
 
     access_token = token_response.get('access_token')
+    refresh_token = token_response.get('refresh_token')
+    expires_in = token_response.get('expires_in')
+    
     if not access_token:
         return "Error retrieving access token", 400
 
+    # Get user data using their own OAuth token
     user_response = requests.get('https://osu.ppy.sh/api/v2/me', headers={
         'Authorization': f'Bearer {access_token}'
     }).json()
 
+    # Store user data AND their OAuth tokens
     session['username'] = user_response.get('username')
     session['avatar_url'] = user_response.get('avatar_url')
     session['user_id'] = user_response.get('id')
+    session['access_token'] = access_token
+    session['refresh_token'] = refresh_token
+    session['token_expires_at'] = (datetime.now() + timedelta(seconds=expires_in)).isoformat()
+    
+    # Store the full user data to avoid additional API calls
+    session['user_data'] = user_response
 
     return redirect('/dashboard')
 

@@ -108,9 +108,9 @@ def dashboard():
     db, osu_client, analyzer = get_components()
     
     try:
-        # Get user info first
+        # Get user info optimized way (from session if available)
         print(f"Fetching user info for {username}...")
-        user_info = osu_client.get_user_info(username)
+        user_info = osu_client.get_user_info(username, session)
         if not user_info:
             return render_template('dashboard.html', 
                                  username=username,
@@ -142,12 +142,12 @@ def dashboard():
         else:
             print("No cached analysis found, performing new analysis")
         
-        # Perform new analysis
+        # Perform new analysis with user's OAuth token
         print(f"Starting comprehensive analysis for {username}...")
         start_time = time.time()
         
-        # Get comprehensive data
-        user_data = osu_client.get_comprehensive_user_data(username)
+        # Get comprehensive data using user's session (OAuth token)
+        user_data = osu_client.get_comprehensive_user_data(username, user_session=session)
         
         if not user_data or not user_data.get('user_info'):
             return render_template('dashboard.html',
