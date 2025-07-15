@@ -527,9 +527,10 @@ class SkillAnalyzer:
                 avg_speed = sum(speed_skills) / len(speed_skills)
                 ratio = avg_speed / avg_aim if avg_aim else 0
                 if ratio > 1.2:
-                    insights.append("Your speed outpaces your aim — consider working on precision.")
+                    insights.append("Stronger on speed maps — aim maps needs work.")
                 elif ratio < 0.8:
-                    insights.append("Your aim is stronger than your speed — speed training might help balance.")
+                    insights.append("Stronger on aim maps — try training speed.")
+
 
         # --- Insight 7: SR consistency vs variety ---
         sr_values = [p.get('beatmap_full', {}).get('difficulty_rating', 0) for p in valid_recent_plays]
