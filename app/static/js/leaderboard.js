@@ -1,13 +1,28 @@
 let leaderboardData = [];
 let currentFilter = 'all';
 let currentLimit = 50;
-let currentUsername = '{{ username or "" }}';
+let currentUsername = null; // Will be set from HTML
 let loadingTimeout = null;
 let cache = new Map();
 
 // Cache configuration
 const CACHE_DURATION = 30000; // 30 seconds
 const LOAD_TIMEOUT = 10000;   // 10 seconds
+
+// Initialize current username from the page
+function initializeCurrentUser() {
+  // Try to get username from a hidden element or data attribute
+  const usernameElement = document.querySelector('[data-username]');
+  if (usernameElement) {
+    currentUsername = usernameElement.getAttribute('data-username');
+  }
+  
+  // Fallback: try to get from user card
+  const userCard = document.querySelector('.username');
+  if (userCard && userCard.textContent !== 'Guest') {
+    currentUsername = userCard.textContent.trim();
+  }
+}
 
 async function loadLeaderboard(useCache = true) {
   const cacheKey = `leaderboard_${currentFilter}_${currentLimit}`;
@@ -65,7 +80,7 @@ async function loadLeaderboard(useCache = true) {
   }
 }
 
-// NEW: Function to get current user's position from full leaderboard
+// FIXED: Function to get current user's position from full leaderboard
 async function getCurrentUserPosition() {
   if (!currentUsername) return null;
   
@@ -81,9 +96,18 @@ async function getCurrentUserPosition() {
     const data = await response.json();
     const fullLeaderboard = data.leaderboard;
     
-    // Find current user in full leaderboard
-    const userEntry = fullLeaderboard.find(player => player.username === currentUsername);
-    return userEntry;
+    // Find current user in full leaderboard and get their actual rank
+    for (let i = 0; i < fullLeaderboard.length; i++) {
+      if (fullLeaderboard[i].username === currentUsername) {
+        // Return the user data with their actual rank position
+        return {
+          ...fullLeaderboard[i],
+          rank: i + 1  // Position in the filtered leaderboard
+        };
+      }
+    }
+    
+    return null; // User not found in leaderboard
     
   } catch (error) {
     console.error('Error fetching user position:', error);
@@ -142,14 +166,14 @@ async function renderLeaderboard() {
     filteredData = leaderboardData.filter(p => p.verdict === currentFilter);
   }
 
-  // NEW: Get current user's actual position
+  // Get current user's actual position
   let currentUserData = null;
   if (currentUsername) {
     currentUserData = await getCurrentUserPosition();
   }
 
-  // Get top players (excluding current user if they're in the top results)
-  let topPlayersData = filteredData.filter(p => p.username !== currentUsername).slice(0, currentLimit);
+  // Get top players (including current user if they're in the top results)
+  let topPlayersData = filteredData.slice(0, currentLimit);
 
   if (filteredData.length === 0) {
     content.innerHTML = `
@@ -164,8 +188,8 @@ async function renderLeaderboard() {
 
   const fragment = document.createDocumentFragment();
 
-  // Show current user's position if they exist in the database
-  if (currentUserData) {
+  // Show current user's position if they exist in the database and are not in top results
+  if (currentUserData && currentUserData.rank > currentLimit) {
     const userSection = document.createElement('div');
     userSection.className = 'leaderboard-section';
     userSection.innerHTML = `
@@ -191,7 +215,7 @@ async function renderLeaderboard() {
     const leaderboardSection = document.createElement('div');
     leaderboardSection.className = 'leaderboard-section';
     leaderboardSection.innerHTML = `
-      <h2 class="section-title">${currentUserData ? 'Global Leaderboard' : 'Leaderboard'}</h2>
+      <h2 class="section-title">${currentUserData && currentUserData.rank > currentLimit ? 'Global Leaderboard' : 'Leaderboard'}</h2>
       <div class="leaderboard-table">
         <div class="table-header">
           <div>Rank</div>
@@ -202,7 +226,7 @@ async function renderLeaderboard() {
           <div class="confidence">Confidence</div>
           <div>Verdict</div>
         </div>
-        ${topPlayersData.map(p => renderPlayerRow(p, false)).join('')}
+        ${topPlayersData.map((p, index) => renderPlayerRow({...p, rank: index + 1}, p.username === currentUsername)).join('')}
       </div>
     `;
     fragment.appendChild(leaderboardSection);
@@ -299,7 +323,10 @@ document.getElementById('limit-filter').addEventListener('change', handleFilterC
 setInterval(() => loadLeaderboard(false), 300000);
 
 // Initial load
-document.addEventListener('DOMContentLoaded', () => loadLeaderboard(false));
+document.addEventListener('DOMContentLoaded', () => {
+  initializeCurrentUser();
+  loadLeaderboard(false);
+});
 
 // Add loading styles
 const style = document.createElement('style');
@@ -355,3 +382,4 @@ style.textContent = `
     color: #ff6b6b;
   }
 `;
+document.head.appendChild(style);

@@ -8,8 +8,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
   <meta name="color-scheme" content="dark light">
 
-
-    <!-- SEO -->
+  <!-- SEO -->
   <meta name="description" content="Leaderboard - osu!Skill" />
   <meta name="keywords" content="osu, osu!skill, pp analyzer, osu ranking, skill check, rhythm game stats, osu pp, osu ranking, osu leaderboard" />
   <meta name="author" content="osu!Skill - snovn" />
@@ -34,6 +33,9 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/tooltip.css') }}" />
 </head>
 <body>
+  <!-- Hidden element to pass username to JavaScript -->
+  <div id="user-data" data-username="{{ username or '' }}" style="display: none;"></div>
+
   <header>
     <div class="container">
       <nav>
