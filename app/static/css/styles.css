@@ -495,47 +495,43 @@ main {
   text-align: center;
 }
 
-.verdict-insufficient {
-  background: rgba(128, 128, 128, 0.2);
-  color: #aaaaaa;
-  border: 1px solid rgba(128, 128, 128, 0.3);
-}
-
+.verdict-insufficient,
 .verdict-expired {
-  background: rgba(128, 128, 128, 0.2);
-  color: #aaaaaa;
-  border: 1px solid rgba(128, 128, 128, 0.3);
+  background: rgba(156, 163, 175, 0.2);  /* gray-400 */
+  color: #9ca3af;
+  border: 1px solid rgba(156, 163, 175, 0.3);
 }
 
 .verdict-accurate {
-  background: rgba(0, 255, 127, 0.2);
-  color: #00ff7f;
-  border: 1px solid rgba(0, 255, 127, 0.3);
-}
-
-.verdict-rusty {
-  background: rgba(255, 165, 0, 0.2);
-  color: #ffa500;
-  border: 1px solid rgba(255, 165, 0, 0.3);
+  background: rgba(34, 197, 94, 0.2);    /* green-500 */
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
 }
 
 .verdict-slightly_rusty {
-  background: rgba(255, 255, 0, 0.2);
-  color: #ffff00;
-  border: 1px solid rgba(255, 255, 0, 0.3);
+  background: rgba(251, 191, 36, 0.2);   /* amber-400 */
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.verdict-rusty {
+  background: rgba(245, 158, 11, 0.2);   /* amber-500 */
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .verdict-overranked {
-  background: rgba(255, 140, 0, 0.2);
-  color: #ff8c00;
-  border: 1px solid rgba(255, 140, 0, 0.3);
+  background: rgba(239, 68, 68, 0.2);    /* red-500 */
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .verdict-inactive {
-  background: rgba(255, 69, 0, 0.2);
-  color: #ff4500;
-  border: 1px solid rgba(255, 69, 0, 0.3);
+  background: rgba(220, 38, 38, 0.2);    /* red-600 */
+  color: #dc2626;
+  border: 1px solid rgba(220, 38, 38, 0.3);
 }
+
 
 .loading {
   text-align: center;

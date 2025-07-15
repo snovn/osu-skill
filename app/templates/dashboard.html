@@ -109,7 +109,7 @@
       margin-bottom: 15px;
     }
     
-    .verdict-badge {
+    .verdict-badge-dash {
       padding: 8px 16px;
       border-radius: 20px;
       font-weight: 600;
@@ -118,12 +118,7 @@
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
-    
-    .verdict-accurate { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
-    .verdict-slightly_rusty { background: rgba(251, 191, 36, 0.2); color: #fbbf24; }
-    .verdict-overranked { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
-    .verdict-inactive { background: rgba(107, 114, 128, 0.2); color: #6b7280; }
-    .verdict-insufficient { background: rgba(156, 163, 175, 0.2); color: #9ca3af; }
+
     
     .confidence-bar {
       width: 100%;
@@ -509,7 +504,7 @@
         <div class="analysis-grid">
           <div class="analysis-card">
             <h3>Verdict</h3>
-            <div class="verdict-badge 
+            <div class="verdict-badge-dash 
                 {% if analysis.verdict == 'unknown' %}
                     verdict-insufficient
                 {% else %}
