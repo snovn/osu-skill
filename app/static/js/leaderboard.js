@@ -65,6 +65,32 @@ async function loadLeaderboard(useCache = true) {
   }
 }
 
+// NEW: Function to get current user's position from full leaderboard
+async function getCurrentUserPosition() {
+  if (!currentUsername) return null;
+  
+  try {
+    // Fetch full leaderboard to find user's actual position
+    const response = await fetch(`/api/leaderboard?verdict=${currentFilter}&limit=1000`, {
+      method: 'GET',
+      headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+    });
+    
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    const fullLeaderboard = data.leaderboard;
+    
+    // Find current user in full leaderboard
+    const userEntry = fullLeaderboard.find(player => player.username === currentUsername);
+    return userEntry;
+    
+  } catch (error) {
+    console.error('Error fetching user position:', error);
+    return null;
+  }
+}
+
 function updateStats(stats) {
   document.getElementById('total-players').textContent = stats.total_players;
   document.getElementById('avg-skill').textContent = stats.avg_skill.toFixed(1);
@@ -108,35 +134,22 @@ function cleanCache() {
   }
 }
 
-function renderLeaderboard() {
+async function renderLeaderboard() {
   const content = document.getElementById('leaderboard-content');
 
-  // Debug: Log current username and check if it's properly set
-  console.log('Current username:', currentUsername);
-  console.log('Leaderboard data length:', leaderboardData.length);
-
-  // Find current user in the full leaderboard data (before any filtering)
-  const currentUserData = leaderboardData.find(p => {
-    const match = p.username === currentUsername;
-    if (match) {
-      console.log('Found current user:', p);
-    }
-    return match;
-  });
-
-  console.log('Current user data:', currentUserData);
-
-  // Apply filters for the main leaderboard display
   let filteredData = leaderboardData;
   if (currentFilter !== 'all') {
     filteredData = leaderboardData.filter(p => p.verdict === currentFilter);
   }
 
-  // Get other players (excluding current user) with filters applied
-  let otherPlayersData = leaderboardData
-    .filter(p => p.username !== currentUsername)
-    .filter(p => currentFilter === 'all' || p.verdict === currentFilter)
-    .slice(0, currentLimit);
+  // NEW: Get current user's actual position
+  let currentUserData = null;
+  if (currentUsername) {
+    currentUserData = await getCurrentUserPosition();
+  }
+
+  // Get top players (excluding current user if they're in the top results)
+  let topPlayersData = filteredData.filter(p => p.username !== currentUsername).slice(0, currentLimit);
 
   if (filteredData.length === 0) {
     content.innerHTML = `
@@ -151,8 +164,8 @@ function renderLeaderboard() {
 
   const fragment = document.createDocumentFragment();
 
-  // Show current user section if user is logged in and found
-  if (currentUserData && currentUsername && currentUsername.trim() !== '') {
+  // Show current user's position if they exist in the database
+  if (currentUserData) {
     const userSection = document.createElement('div');
     userSection.className = 'leaderboard-section';
     userSection.innerHTML = `
@@ -173,8 +186,8 @@ function renderLeaderboard() {
     fragment.appendChild(userSection);
   }
 
-  // Show main leaderboard
-  if (otherPlayersData.length > 0) {
+  // Show top players
+  if (topPlayersData.length > 0) {
     const leaderboardSection = document.createElement('div');
     leaderboardSection.className = 'leaderboard-section';
     leaderboardSection.innerHTML = `
@@ -189,7 +202,7 @@ function renderLeaderboard() {
           <div class="confidence">Confidence</div>
           <div>Verdict</div>
         </div>
-        ${otherPlayersData.map(p => renderPlayerRow(p, false)).join('')}
+        ${topPlayersData.map(p => renderPlayerRow(p, false)).join('')}
       </div>
     `;
     fragment.appendChild(leaderboardSection);
@@ -342,4 +355,3 @@ style.textContent = `
     color: #ff6b6b;
   }
 `;
-document.head.appendChild(style);
