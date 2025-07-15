@@ -466,7 +466,7 @@ class SkillAnalyzer:
         if old_top_plays > 7:
             insights.append("Most top plays are quite old - consider setting new personal bests")
 
-        # --- Insight 2: Star rating gap (recent vs. top) ---
+        # --- Insight 2: Star rating gap (recent vs top) ---
         if len(valid_top_plays) >= 5 and len(valid_recent_plays) >= 5:
             avg_top_sr = sum(p.get('beatmap_full', {}).get('difficulty_rating', 0) for p in valid_top_plays[:10]) / 10
             avg_recent_sr = sum(p.get('beatmap_full', {}).get('difficulty_rating', 0) for p in valid_recent_plays[:10]) / 10
@@ -482,13 +482,16 @@ class SkillAnalyzer:
             if len(accuracies) > 1:
                 acc_std = statistics.stdev(accuracies)
                 avg_acc = statistics.mean(accuracies)
-                if acc_std > 12:
-                    insights.append("Consider working on accuracy consistency")
-                elif acc_std < 5:
-                    if avg_acc >= 90:
-                        insights.append("Excellent aim consistency with high accuracy!")
-                    elif avg_acc >= 70:
-                        insights.append("Good aim consistency, consider improving accuracy")
+                if acc_std < 5:
+                    if avg_acc >= 95:
+                        insights.append("Excellent aim consistency with exceptional accuracy!")
+                    elif avg_acc >= 90:
+                        insights.append("Strong aim consistency with good accuracy")
+                    elif avg_acc >= 75:
+                        insights.append("Consistent aim, but accuracy needs improvement")
+                    else:
+                        insights.append("Very consistent, but accuracy is too low — focus on precision")
+
 
         # --- Insight 4: Retry behavior ---
         plays_with_retries = self.detect_retries(valid_recent_plays)
@@ -511,6 +514,37 @@ class SkillAnalyzer:
             insights.append("Consider trying different mods to develop diverse skills")
         elif len(mod_usage) > 4:
             insights.append("Good mod variety - you're developing well-rounded skills")
+
+        # --- Insight 6: Speed vs Aim bias ---
+        if len(valid_recent_plays) >= 5:
+            aim_skills = [self.calculate_skill_components(p)[0] for p in valid_recent_plays[:10]]
+            speed_skills = [self.calculate_skill_components(p)[1] for p in valid_recent_plays[:10]]
+            if aim_skills and speed_skills:
+                avg_aim = sum(aim_skills) / len(aim_skills)
+                avg_speed = sum(speed_skills) / len(speed_skills)
+                ratio = avg_speed / avg_aim if avg_aim else 0
+                if ratio > 1.2:
+                    insights.append("Your speed outpaces your aim — consider working on precision.")
+                elif ratio < 0.8:
+                    insights.append("Your aim is stronger than your speed — speed training might help balance.")
+
+        # --- Insight 7: SR consistency vs variety ---
+        sr_values = [p.get('beatmap_full', {}).get('difficulty_rating', 0) for p in valid_recent_plays]
+        if len(sr_values) >= 6:
+            sr_std = statistics.stdev(sr_values)
+            if sr_std < 0.3:
+                insights.append("You're focusing on a narrow difficulty range — try mixing up challenge levels.")
+            elif sr_std > 1.0:
+                insights.append("Great variety in map difficulty — good for balanced improvement.")
+
+        # --- Insight 8: High accuracy on easy maps ---
+        if len(valid_recent_plays) >= 5:
+            easy_high_acc = [
+                p for p in valid_recent_plays
+                if p.get('accuracy', 0) >= 0.96 and p.get('beatmap_full', {}).get('difficulty_rating', 0) < 3.5
+            ]
+            if len(easy_high_acc) >= 5:
+                insights.append("You’re achieving high accuracy on easier maps — try challenging yourself more.")
 
         return insights
 
