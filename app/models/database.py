@@ -69,89 +69,61 @@ class SupabaseDatabase:
     def save_analysis_result(self, user_id: int, analysis_result: Dict) -> Optional[int]:
         """Save analysis result to database"""
         try:
-            if not isinstance(analysis_result, dict):
-                raise TypeError(f"Expected dict for analysis_result, got {type(analysis_result).__name__}")
-            
             timestamp = datetime.now(pytz.UTC).isoformat()
-            
-            # CRITICAL FIX: Ensure all values are properly extracted and validated
-            recent_skill = float(analysis_result.get('recent_skill', 0) or 0)
-            peak_skill = float(analysis_result.get('peak_skill', 0) or 0)
-            skill_match = float(analysis_result.get('skill_match', 0) or 0)
-            confidence = float(analysis_result.get('confidence', 0) or 0)
-            verdict = str(analysis_result.get('verdict', 'unknown') or 'unknown')
-            
-            # Validate verdict values
-            valid_verdicts = ['legit', 'suspicious', 'cheater', 'unknown']
-            if verdict not in valid_verdicts:
-                print(f"WARNING: Invalid verdict '{verdict}', defaulting to 'unknown'")
-                verdict = 'unknown'
             
             record = {
                 'user_id': user_id,
-                'recent_skill': recent_skill,
-                'peak_skill': peak_skill,
-                'skill_match': skill_match,
-                'confidence': confidence,
-                'verdict': verdict,
+                'recent_skill': analysis_result.get('recent_skill', 0),
+                'peak_skill': analysis_result.get('peak_skill', 0),
+                'skill_match': analysis_result.get('skill_match', 0),
+                'confidence': analysis_result.get('confidence', 0),
+                'verdict': analysis_result.get('verdict', 'unknown'),
                 'insights': json.dumps(analysis_result.get('insights', [])),
                 'confidence_factors': json.dumps(analysis_result.get('confidence_factors', {})),
                 'created_at': timestamp
             }
             
-            print(f"Saving analysis for user_id {user_id} with verdict: {verdict}")
-            
             response = self.client.table('analysis_results').insert(record).execute()
             
             if response.data:
                 analysis_id = response.data[0]['id']
-                print(f"Successfully saved analysis result (ID: {analysis_id}) for user_id: {user_id} with verdict: {verdict}")
+                print(f"Saved analysis result (ID: {analysis_id}) for user_id: {user_id}")
                 return analysis_id
-            else:
-                print(f"ERROR: No data returned from analysis save for user_id {user_id}")
-                return None
                 
         except Exception as e:
-            print(f"Error saving analysis result for user_id {user_id}: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"Error saving analysis result: {e}")
             return None
     
     def get_latest_analysis(self, user_id: int) -> Optional[Dict]:
         """Get latest analysis result for user"""
         try:
             response = (self.client.table('analysis_results')
-                    .select('*')
-                    .eq('user_id', user_id)
-                    .order('created_at', desc=True)
-                    .limit(1)
-                    .execute())
+                       .select('*')
+                       .eq('user_id', user_id)
+                       .order('created_at', desc=True)
+                       .limit(1)
+                       .execute())
             
             if response.data:
                 row = response.data[0]
-                
-                # CRITICAL FIX: Ensure proper data type conversion
                 result = {
-                    'recent_skill': float(row['recent_skill'] or 0),
-                    'peak_skill': float(row['peak_skill'] or 0),
-                    'skill_match': float(row['skill_match'] or 0),
-                    'confidence': float(row['confidence'] or 0),
-                    'verdict': str(row['verdict'] or 'unknown'),
+                    'recent_skill': row['recent_skill'],
+                    'peak_skill': row['peak_skill'],
+                    'skill_match': row['skill_match'],
+                    'confidence': row['confidence'],
+                    'verdict': row['verdict'],
                     'insights': json.loads(row['insights']) if row['insights'] else [],
                     'confidence_factors': json.loads(row['confidence_factors']) if row['confidence_factors'] else {},
                     'created_at': row['created_at']
                 }
-                
-                print(f"Retrieved cached analysis for user_id {user_id}: verdict={result['verdict']}, created_at={row['created_at']}")
+                print(f"Retrieved cached analysis for user_id {user_id}: {row['created_at']}")
                 return result
             else:
                 print(f"No cached analysis found for user_id {user_id}")
                 return None
                 
         except Exception as e:
-            print(f"Error getting latest analysis for user_id {user_id}: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"Error getting latest analysis: {e}")
             return None
     
     def update_leaderboard(self, user_id: int, analysis_result: Dict):
@@ -160,16 +132,17 @@ class SupabaseDatabase:
             if not isinstance(analysis_result, dict):
                 raise TypeError(f"Expected dict for analysis_result, got {type(analysis_result).__name__}")
 
-            # CRITICAL FIX: Ensure all values are properly extracted and defaulted
-            recent_skill = float(analysis_result.get('recent_skill', 0) or 0)
-            peak_skill = float(analysis_result.get('peak_skill', 0) or 0)
-            skill_match = float(analysis_result.get('skill_match', 0) or 0)
-            confidence = float(analysis_result.get('confidence', 0) or 0)
-            verdict = str(analysis_result.get('verdict', 'unknown') or 'unknown')
+            # Calculate skill score with proper default values
+            recent_skill = analysis_result.get('recent_skill', 0) or 0
+            peak_skill = analysis_result.get('peak_skill', 0) or 0
+            skill_match = analysis_result.get('skill_match', 0) or 0
+            confidence = analysis_result.get('confidence', 0) or 0
+            verdict = analysis_result.get('verdict', 'unknown') or 'unknown'
             
             # Improved skill score calculation
-            skill_score = (recent_skill * 0.7 + peak_skill * 0.3)
-            
+            normalized_confidence = max(30, min(confidence, 100))
+            skill_score = (recent_skill * 0.7 + peak_skill * 0.3) * (normalized_confidence / 100)
+
             timestamp = datetime.now(pytz.UTC).isoformat()
             
             record = {
@@ -183,27 +156,16 @@ class SupabaseDatabase:
                 'updated_at': timestamp
             }
             
-            # CRITICAL FIX: Add error handling and validation
-            print(f"Updating leaderboard for user_id {user_id} with verdict: {verdict}")
-            
             # Use upsert to insert or update
             response = self.client.table('leaderboard').upsert(record, on_conflict='user_id').execute()
-            
-            if not response.data:
-                print(f"WARNING: No data returned from leaderboard upsert for user_id {user_id}")
-                return False
             
             # Update rank positions
             self._update_leaderboard_ranks()
             
-            print(f"Successfully updated leaderboard for user_id {user_id} with verdict: {verdict}, skill_score: {skill_score:.2f}")
-            return True
+            print(f"Updated leaderboard for user_id {user_id} with skill_score {skill_score:.2f}")
             
         except Exception as e:
-            print(f"Error updating leaderboard for user_id {user_id}: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
+            print(f"Error updating leaderboard: {e}")
 
     def _update_leaderboard_ranks(self):
         """Update all rank positions using PostgreSQL window function"""
@@ -558,3 +520,12 @@ class SupabaseDatabase:
         except Exception as e:
             print(f"Error getting user by username {username}: {e}")
             return None
+        
+    def get_all_users(self) -> List[Dict]:
+        """Fetch all users from the database"""
+        try:
+            response = self.client.table('users').select('id, username').execute()
+            return response.data if response.data else []
+        except Exception as e:
+            print(f"Error fetching all users: {e}")
+            return []

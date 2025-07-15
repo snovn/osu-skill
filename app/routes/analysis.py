@@ -497,3 +497,50 @@ def force_reanalyze_user(username):
     db.save_analysis_result(user_id, analysis)
     db.update_leaderboard(user_id, analysis)
     return jsonify({'success': True, 'verdict': analysis['verdict']})
+
+@analysis_bp.route('/api/admin/reanalyze_all')
+@admin_required
+def reanalyze_all_users():
+    """Admin endpoint to reanalyze all users"""
+    db, osu_client, analyzer = get_components()
+
+    try:
+        # Get all users
+        users = db.get_all_users()
+        if not users:
+            return jsonify({'message': 'No users found'}), 200
+
+        reanalyzed = []
+
+        for user in users:
+            username = user.get('username')
+            user_id = user.get('id')
+
+            try:
+                print(f"Reanalyzing: {username}")
+                user_data = osu_client.get_comprehensive_user_data(username)
+
+                if not user_data or not user_data.get('user_info'):
+                    print(f"Skipping {username}: could not fetch data")
+                    continue
+
+                analysis = analyzer.analyze_user_skill(user_data)
+                db.save_analysis_result(user_id, analysis)
+                db.update_leaderboard(user_id, analysis)
+                reanalyzed.append({
+                    'username': username,
+                    'verdict': analysis['verdict']
+                })
+
+            except Exception as e:
+                print(f"Error analyzing {username}: {e}")
+                continue
+
+        return jsonify({
+            'reanalyzed_count': len(reanalyzed),
+            'reanalyzed_users': reanalyzed,
+            'timestamp': datetime.now(pytz.UTC).isoformat()
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
