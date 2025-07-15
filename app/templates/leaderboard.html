@@ -171,5 +171,9 @@
   </script>
   <script src="{{ url_for('static', filename='js/leaderboard.js') }}"></script>
   <script src="{{ url_for('static', filename='js/loader.js') }}"></script>
+  <script type="module">
+    import { inject } from 'https://www.vercel-insights.com/script.js';
+    inject();
+  </script>
 </body>
 </html>
