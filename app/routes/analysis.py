@@ -261,8 +261,10 @@ def leaderboard():
     verdict_filter = request.args.get('verdict', 'all')
     
     # Get leaderboard data with filters
-    leaderboard_data = db.get_leaderboard(50, search_query, verdict_filter)
-    
+    limit = request.args.get('limit', 50, type=int)
+    leaderboard_data = db.get_leaderboard(limit, search_query, verdict_filter)
+
+        
     # Get database stats
     stats = db.get_user_stats()
     

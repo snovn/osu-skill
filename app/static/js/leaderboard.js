@@ -36,10 +36,11 @@
     });
 
     try {
-      const fetchPromise = fetch('/api/leaderboard', {
+      const fetchPromise = fetch(`/api/leaderboard?verdict=${currentFilter}&limit=${currentLimit}`, {
         method: 'GET',
         headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
       });
+
 
       const response = await Promise.race([fetchPromise, timeoutPromise]);
 
