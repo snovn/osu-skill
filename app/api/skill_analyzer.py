@@ -483,14 +483,17 @@ class SkillAnalyzer:
                 acc_std = statistics.stdev(accuracies)
                 avg_acc = statistics.mean(accuracies)
                 if acc_std < 5:
-                    if avg_acc >= 95:
-                        insights.append("Excellent aim consistency with exceptional accuracy!")
+                    if avg_acc >= 98:
+                        insights.append("Excellent consistency with high accuracy!")
+                    elif avg_acc >= 95:
+                        insights.append("Great consistency and solid accuracy")
                     elif avg_acc >= 90:
-                        insights.append("Strong aim consistency with good accuracy")
+                        insights.append("Good consistency — but aim for higher accuracy")
                     elif avg_acc >= 75:
-                        insights.append("Consistent aim, but accuracy needs improvement")
+                        insights.append("Stable consistency, but overall performance needs improvement")
                     else:
-                        insights.append("Very consistent, but accuracy is too low — focus on precision")
+                        insights.append("Stable consistency, but accuracy is critically low — focus on fundamentals")
+
 
 
         # --- Insight 4: Retry behavior ---
