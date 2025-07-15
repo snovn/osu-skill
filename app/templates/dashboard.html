@@ -27,6 +27,7 @@
   <meta name="twitter:title" content="osu!Skill - Discover Your True Rank" />
   <meta name="twitter:description" content="Discover your osu! skill level with analysis beyond PP." />
   <meta name="twitter:image" content="https://osuskill.com/static/icons/preview.png" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/loader.css') }}" />
   <style>
     .dashboard-container {
       max-width: 1200px;
@@ -184,23 +185,7 @@
       margin-bottom: 20px;
     }
     
-    .loading-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 300px;
-      gap: 20px;
-    }
-    
-    .loading-spinner {
-      width: 50px;
-      height: 50px;
-      border: 3px solid rgba(255, 102, 170, 0.3);
-      border-top: 3px solid var(--color-primary);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
+
     
     @keyframes spin {
       0% { transform: rotate(0deg); }
@@ -616,5 +601,7 @@
       mobileMenu.classList.toggle('active');
     }
   </script>
+  <script src="{{ url_for('static', filename='js/loader.js') }}"></script>
+
 </body>
 </html>

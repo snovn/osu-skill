@@ -188,9 +188,9 @@ class SupabaseDatabase:
             print(f"Error updating leaderboard ranks: {e}")
 
     def get_leaderboard(self, limit: int = 50, search_query: str = None, verdict_filter: str = None) -> List[Dict]:
-        """Get leaderboard with user info and analysis data, with optional search and filtering"""
+        """Get leaderboard with user info and analysis data, with optional search and filtering - OPTIMIZED"""
         try:
-            # Start with base query
+            # Single optimized query that joins all required data
             query = (self.client.table('leaderboard')
                     .select('''
                         rank_position,
@@ -201,6 +201,7 @@ class SupabaseDatabase:
                         verdict,
                         skill_score,
                         updated_at,
+                        user_id,
                         users (
                             osu_id,
                             username,
@@ -221,9 +222,41 @@ class SupabaseDatabase:
             # Execute query with ordering and limit
             response = query.order('skill_score', desc=True).limit(limit).execute()
             
+            if not response.data:
+                return []
+            
+            # Get all user IDs for batch analysis timestamp lookup
+            user_ids = [row['user_id'] for row in response.data]
+            
+            # Batch query for analysis timestamps - single query for all users
+            analysis_timestamps = {}
+            try:
+                # Get the most recent analysis timestamp for each user in a single query
+                analysis_response = (self.client.table('analysis_results')
+                                .select('user_id, created_at')
+                                .in_('user_id', user_ids)
+                                .order('created_at', desc=True)
+                                .execute())
+                
+                # Group by user_id and get the most recent timestamp
+                for row in analysis_response.data:
+                    user_id = row['user_id']
+                    if user_id not in analysis_timestamps:
+                        analysis_timestamps[user_id] = row['created_at']
+                        
+            except Exception as e:
+                print(f"Error getting batch analysis timestamps: {e}")
+                # Continue with leaderboard update timestamps as fallback
+            
+            # Build results using batch-fetched data
             results = []
             for row in response.data:
                 user_data = row['users']
+                user_id = row['user_id']
+                
+                # Use batch-fetched analysis timestamp or fallback to leaderboard timestamp
+                analysis_timestamp = analysis_timestamps.get(user_id, row['updated_at'])
+                
                 results.append({
                     'rank': row['rank_position'] or 0,
                     'osu_id': user_data['osu_id'],
@@ -237,8 +270,10 @@ class SupabaseDatabase:
                     'confidence': row['confidence'] or 0,
                     'verdict': row['verdict'] or 'unknown',
                     'skill_score': row['skill_score'] or 0,
+                    'analysis_timestamp': analysis_timestamp,
                     'updated_at': row['updated_at']
                 })
+            
             return results
             
         except Exception as e:
@@ -246,9 +281,9 @@ class SupabaseDatabase:
             return []
 
     def get_leaderboard_stats(self, verdict_filter: str = None) -> Dict:
-        """Get leaderboard statistics"""
+        """Get leaderboard statistics - OPTIMIZED"""
         try:
-            # Build query with optional filter
+            # Single query with aggregation
             query = self.client.table('leaderboard').select('recent_skill, confidence')
             
             if verdict_filter and verdict_filter != 'all':
@@ -264,6 +299,7 @@ class SupabaseDatabase:
                     'avg_confidence': 0
                 }
             
+            # Process data in memory (faster than multiple DB queries)
             skills = [row['recent_skill'] for row in response.data if row['recent_skill']]
             confidences = [row['confidence'] for row in response.data if row['confidence']]
             
@@ -276,36 +312,51 @@ class SupabaseDatabase:
             
         except Exception as e:
             print(f"Error getting leaderboard stats: {e}")
-            return {'total_players': 0, 'avg_skill': 0, 'top_skill': 0, 'avg_confidence': 0}
-        
+            return {'total_users': 0, 'avg_skill': 0, 'top_skill': 0, 'avg_confidence': 0}
+
     def get_user_stats(self) -> Dict:
-        """Get database statistics"""
+        """Get database statistics - OPTIMIZED"""
         try:
-            # Get total users
-            users_response = self.client.table('users').select('id', count='exact').execute()
-            total_users = users_response.count
+            # Use connection pooling and batch queries
+            from concurrent.futures import ThreadPoolExecutor
+            import time
             
-            # Get total analyses
-            analyses_response = self.client.table('analysis_results').select('id', count='exact').execute()
-            total_analyses = analyses_response.count
+            def get_users_count():
+                return self.client.table('users').select('id', count='exact').execute().count
             
-            # Get recent analyses (last 7 days) - FIXED: Use datetime.timedelta instead of pytz.timedelta
-            seven_days_ago = (datetime.now(pytz.UTC) - timedelta(days=7)).isoformat()
-            recent_response = (self.client.table('analysis_results')
-                             .select('id', count='exact')
-                             .gte('created_at', seven_days_ago)
-                             .execute())
-            recent_analyses = recent_response.count
+            def get_analyses_count():
+                return self.client.table('analysis_results').select('id', count='exact').execute().count
             
-            return {
-                'total_users': total_users,
-                'total_analyses': total_analyses,
-                'recent_analyses': recent_analyses
-            }
+            def get_recent_analyses_count():
+                seven_days_ago = (datetime.now(pytz.UTC) - timedelta(days=7)).isoformat()
+                return (self.client.table('analysis_results')
+                    .select('id', count='exact')
+                    .gte('created_at', seven_days_ago)
+                    .execute().count)
             
+            # Execute queries in parallel with timeout
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                futures = {
+                    'total_users': executor.submit(get_users_count),
+                    'total_analyses': executor.submit(get_analyses_count),
+                    'recent_analyses': executor.submit(get_recent_analyses_count)
+                }
+                
+                results = {}
+                for key, future in futures.items():
+                    try:
+                        results[key] = future.result(timeout=5)  # 5 second timeout
+                    except Exception as e:
+                        print(f"Error getting {key}: {e}")
+                        results[key] = 0
+                
+                return results
+                
         except Exception as e:
             print(f"Error getting user stats: {e}")
             return {'total_users': 0, 'total_analyses': 0, 'recent_analyses': 0}
+
+
     
     def clear_old_analyses(self, days_old: int = 30):
         """Clear analyses older than specified days"""
