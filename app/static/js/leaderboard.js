@@ -117,16 +117,15 @@
       filteredData = leaderboardData.filter(p => p.verdict === currentFilter);
     }
 
-    let currentUserData = null;
-    let otherPlayersData = [];
+    // Always get your data from the full leaderboard (not the filtered one)
+    const currentUserData = leaderboardData.find(p => p.username === currentUsername);
 
-    filteredData.forEach(player => {
-      if (currentUsername && player.username === currentUsername) {
-        currentUserData = player;
-      } else {
-        otherPlayersData.push(player);
-      }
-    });
+    // Filter other players, excluding yourself
+    let otherPlayersData = leaderboardData
+      .filter(p => p.username !== currentUsername)
+      .filter(p => currentFilter === 'all' || p.verdict === currentFilter)
+      .slice(0, currentLimit);
+
 
     otherPlayersData = otherPlayersData.slice(0, currentLimit);
 
