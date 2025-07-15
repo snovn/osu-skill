@@ -509,7 +509,12 @@
         <div class="analysis-grid">
           <div class="analysis-card">
             <h3>Verdict</h3>
-            <div class="verdict-badge verdict-{{ analysis.verdict }}">
+            <div class="verdict-badge 
+                {% if analysis.verdict == 'unknown' %}
+                    verdict-insufficient
+                {% else %}
+                    verdict-{{ analysis.verdict }}
+                {% endif %}">
               {% if analysis.verdict == 'accurate' %}
                 Accurate Rank
               {% elif analysis.verdict == 'slightly_rusty' %}
@@ -518,10 +523,14 @@
                 Overranked
               {% elif analysis.verdict == 'inactive' %}
                 Inactive
+              {% elif analysis.verdict == 'insufficient' %}
+                Insufficient Data
               {% else %}
                 Insufficient Data
               {% endif %}
             </div>
+
+
             <div class="skill-label" style="margin-top: 15px;">
               {% if analysis.verdict == 'accurate' %}
                 Your current rank accurately reflects your skill level.
