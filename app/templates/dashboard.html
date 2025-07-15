@@ -234,7 +234,12 @@
       transform: translateY(-2px);
     }
     
+    /* Mobile Responsive Styles */
     @media (max-width: 768px) {
+      .dashboard-container {
+        padding: 20px 15px;
+      }
+      
       .analysis-grid {
         grid-template-columns: 1fr;
         gap: 20px;
@@ -243,10 +248,149 @@
       .user-header {
         flex-direction: column;
         text-align: center;
+        padding: 15px;
+        gap: 15px;
+      }
+      
+      .user-avatar-large {
+        width: 60px;
+        height: 60px;
+      }
+      
+      .user-info h1 {
+        font-size: 24px;
       }
       
       .user-stats {
-        justify-content: center;
+        flex-direction: column;
+        gap: 10px;
+        align-items: center;
+      }
+      
+      .stat-item {
+        text-align: center;
+      }
+      
+      .analysis-card {
+        padding: 20px;
+      }
+      
+      .analysis-card h3 {
+        font-size: 18px;
+      }
+      
+      .skill-score {
+        font-size: 28px;
+      }
+      
+      .insights-section {
+        padding: 20px;
+      }
+      
+      .insight-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        text-align: left;
+      }
+      
+      .verdict-badge {
+        font-size: 12px;
+        padding: 6px 12px;
+      }
+      
+      .loading-container {
+        padding: 20px;
+        min-height: 200px;
+      }
+      
+      .error-message {
+        padding: 15px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .dashboard-container {
+        padding: 15px 10px;
+      }
+      
+      .user-header {
+        padding: 12px;
+        gap: 12px;
+      }
+      
+      .user-avatar-large {
+        width: 50px;
+        height: 50px;
+      }
+      
+      .user-info h1 {
+        font-size: 20px;
+      }
+      
+      .user-stats {
+        gap: 8px;
+      }
+      
+      .stat-item {
+        font-size: 13px;
+      }
+      
+      .analysis-card {
+        padding: 15px;
+      }
+      
+      .analysis-card h3 {
+        font-size: 16px;
+      }
+      
+      .skill-score {
+        font-size: 24px;
+      }
+      
+      .skill-label {
+        font-size: 13px;
+      }
+      
+      .insights-section {
+        padding: 15px;
+      }
+      
+      .insights-section h3 {
+        font-size: 18px;
+      }
+      
+      .analyze-button {
+        padding: 10px 20px;
+        font-size: 14px;
+      }
+    }
+    
+    /* Tablet Responsive */
+    @media (min-width: 769px) and (max-width: 1024px) {
+      .dashboard-container {
+        padding: 30px 20px;
+      }
+      
+      .analysis-grid {
+        gap: 25px;
+      }
+      
+      .user-header {
+        gap: 18px;
+      }
+      
+      .user-avatar-large {
+        width: 70px;
+        height: 70px;
+      }
+      
+      .user-info h1 {
+        font-size: 26px;
+      }
+      
+      .user-stats {
+        gap: 15px;
       }
     }
   </style>
@@ -257,8 +401,11 @@
       <nav>
         <a href="/" class="logo">osu!Skill</a>
         <ul class="nav-links">
-          <li><a href="/">Home</a></li>
-          <li><a href="/leaderboard">Leaderboard</a></li>
+          <li class="nav-item"><a href="/">Home</a></li>
+          <li class="nav-item"><a href="#about">Wiki</a></li>
+          <li class="nav-item"><a href="#contact">Donate</a></li>
+          <li class="nav-item"><a href="/leaderboard">Leaderboard</a></li>
+          <!-- Wrap user card and logout in a container -->
           <li class="user-area">
             <a href="/dashboard" class="user-card">
               <img src="{{ user_info.avatar_url if user_info else 'https://a.ppy.sh/14752899?1628953484.png' }}" 
@@ -268,7 +415,30 @@
             <a href="{{ url_for('auth.logout') }}" class="logout-link">Logout</a>
           </li>
         </ul>
+        <div class="nav-mobile">
+          <div class="user-area-mobile">
+            <a href="/dashboard" class="user-card">
+              <img src="{{ user_info.avatar_url if user_info else 'https://a.ppy.sh/14752899?1628953484.png' }}" 
+                   alt="User Avatar" class="user-avatar">
+              <span class="username">{{ username }}</span>
+            </a>
+            <a href="{{ url_for('auth.logout') }}" class="logout-link">Logout</a>
+          </div>
+          <div class="hamburger" onclick="toggleMobileMenu()">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
       </nav>
+      <div class="mobile-menu" id="mobileMenu">
+        <ul>
+          <li><a href="/">Home</a></li>
+          <li><a href="#about">Wiki</a></li>
+          <li><a href="#contact">Donate</a></li>
+          <li><a href="/leaderboard">Leaderboard</a></li>
+        </ul>
+      </div>
     </div>
   </header>
 
@@ -430,14 +600,21 @@
     <div class="container footer-container">
       <p class="footer-left">&copy; 2025 osu!Skill. Built for the osu! community with ❤️</p>
       <div class="footer-right">
-        <a href="https://www.youtube.com/@snovynosu" target="_blank" rel="noopener">
+        <a href="https://www.youtube.com/@snovynosu" target="_blank" rel="noopener" aria-label="YouTube">
           <img src="{{ url_for('static', filename='icons/youtube.svg') }}" alt="YouTube" class="footer-icon">
         </a>
-        <a href="https://github.com/snovn/osu-skill" target="_blank" rel="noopener">
+        <a href="https://github.com/snovn/osu-skill" target="_blank" rel="noopener" aria-label="GitHub">
           <img src="{{ url_for('static', filename='icons/github.svg') }}" alt="GitHub" class="footer-icon">
         </a>
       </div>
     </div>
   </footer>
+
+  <script>
+    function toggleMobileMenu() {
+      const mobileMenu = document.getElementById('mobileMenu');
+      mobileMenu.classList.toggle('active');
+    }
+  </script>
 </body>
 </html>

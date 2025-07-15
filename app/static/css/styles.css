@@ -64,6 +64,7 @@ nav {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  width: 100%;
 }
 
 .logo {
@@ -88,6 +89,79 @@ nav {
   align-items: center;
 }
 
+/* Mobile navigation wrapper */
+.nav-mobile {
+  display: none;
+  align-items: center;
+  gap: 15px;
+}
+
+.user-area-mobile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Hamburger Menu */
+.hamburger {
+  display: none;
+  flex-direction: column;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 4px;
+  transition: background 0.3s ease;
+}
+
+.hamburger:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.hamburger span {
+  width: 20px;
+  height: 2px;
+  background: var(--color-primary);
+  margin: 2px 0;
+  transition: 0.3s;
+  border-radius: 1px;
+}
+
+/* Mobile Menu */
+.mobile-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: rgba(22, 18, 37, 0.95);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 20px;
+  z-index: 99;
+}
+
+.mobile-menu.active {
+  display: block;
+}
+
+.mobile-menu ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.mobile-menu ul li a {
+  color: var(--color-text-light);
+  font-weight: 600;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: color 0.3s ease;
+}
+
+.mobile-menu ul li a:hover {
+  color: var(--color-primary);
+}
+
 /* Make user-area a flex container to keep user card and logout close */
 .user-area {
   display: flex;
@@ -106,13 +180,13 @@ nav {
   height: 36px; /* same height as avatar */
   display: flex;
   align-items: center;
+  white-space: nowrap;
 }
 
 .logout-link:hover {
   background: rgba(255, 102, 170, 0.1);
   text-decoration: none;
 }
-
 
 /* =====================
    User Card
@@ -168,6 +242,7 @@ nav {
   color: var(--color-primary);
   position: relative;
   z-index: 1;
+  white-space: nowrap;
 }
 
 /* =====================
@@ -193,6 +268,7 @@ main {
   gap: 50px;
   min-height: 75vh;
   text-align: left;
+  padding: 20px;
 }
 
 .mascot {
@@ -253,7 +329,6 @@ main {
   opacity: 0.8;
 }
 
-
 .footer-left {
   margin: 0;
 }
@@ -273,7 +348,6 @@ main {
 .footer-icon:hover {
   filter: brightness(0) invert(0.75) sepia(1) saturate(5) hue-rotate(300deg);
 }
-
 
 /* =====================
    Utility classes (reuse on other pages)
@@ -308,17 +382,195 @@ main {
    Responsive layout
 ===================== */
 @media (max-width: 768px) {
+  .container {
+    padding: 0 15px;
+  }
+
+  /* Navigation adjustments */
+  .nav-links {
+    display: none; /* Hide desktop nav completely */
+  }
+
+  .nav-mobile {
+    display: flex; /* Show mobile nav */
+  }
+
+  .hamburger {
+    display: flex;
+  }
+
+  .logo {
+    font-size: 20px;
+  }
+
+  .logo::before {
+    font-size: 24px;
+  }
+
+  /* User area adjustments for mobile */
+  .user-area-mobile {
+    gap: 8px;
+  }
+
+  .user-card {
+    padding: 4px 8px;
+    gap: 8px;
+  }
+
+  .user-avatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  .username {
+    font-size: 14px;
+  }
+
+  .logout-link {
+    padding: 4px 8px;
+    font-size: 14px;
+    height: 32px;
+  }
+
+  /* Main content adjustments */
   .main-content {
     flex-direction: column;
     text-align: center;
     gap: 30px;
+    padding: 40px 15px;
+    min-height: 70vh;
   }
 
   .mascot {
     width: 200px;
+    order: 1; /* Put mascot first on mobile */
+  }
+
+  .welcome-section {
+    order: 2;
+    max-width: 100%;
   }
 
   .welcome-section h1 {
     font-size: 32px;
+    margin-bottom: 16px;
+  }
+
+  .welcome-section p {
+    font-size: 16px;
+    margin-bottom: 30px;
+  }
+
+  .main-login-btn {
+    padding: 14px 28px;
+    font-size: 16px;
+  }
+
+  /* Footer adjustments */
+  .footer-container {
+    flex-direction: column;
+    gap: 15px;
+    padding: 25px 15px;
+    text-align: center;
+  }
+
+  .footer-left {
+    font-size: 13px;
+  }
+
+  .footer-right {
+    gap: 15px;
+  }
+
+  .footer-icon {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Extra small devices */
+  .logo {
+    font-size: 18px;
+  }
+
+  .user-card {
+    padding: 3px 6px;
+    gap: 6px;
+  }
+
+  .user-avatar {
+    width: 28px;
+    height: 28px;
+  }
+
+  .username {
+    font-size: 13px;
+  }
+
+  .logout-link {
+    padding: 3px 6px;
+    font-size: 13px;
+    height: 28px;
+  }
+
+  .welcome-section h1 {
+    font-size: 28px;
+  }
+
+  .welcome-section p {
+    font-size: 15px;
+  }
+
+  .main-login-btn {
+    padding: 12px 24px;
+    font-size: 15px;
+  }
+
+  .mascot {
+    width: 160px;
+  }
+
+  /* Make sure nav elements don't overflow */
+  .nav-mobile {
+    gap: 10px;
+  }
+
+  .user-area-mobile {
+    gap: 6px;
+  }
+}
+
+/* Medium devices (tablets) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .main-content {
+    gap: 40px;
+  }
+
+  .mascot {
+    width: 280px;
+  }
+
+  .welcome-section h1 {
+    font-size: 38px;
+  }
+
+  .nav-links {
+    gap: 20px;
+  }
+
+  .user-area {
+    gap: 8px;
+  }
+}
+
+/* Large devices (desktops) */
+@media (min-width: 1025px) {
+  .nav-mobile {
+    display: none !important;
+  }
+
+  .nav-links {
+    display: flex;
   }
 }

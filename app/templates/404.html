@@ -89,6 +89,11 @@
 
     /* Responsive adjustments */
     @media (max-width: 768px) {
+      .error-content {
+        min-height: 70vh;
+        padding: 30px 15px;
+      }
+      
       .error-number {
         font-size: 80px;
       }
@@ -97,13 +102,37 @@
         font-size: 24px;
       }
       
+      .error-description {
+        font-size: 16px;
+        margin-bottom: 30px;
+      }
+      
       .error-actions {
         flex-direction: column;
         align-items: center;
+        gap: 15px;
       }
       
       .error-mascot {
         width: 120px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .error-number {
+        font-size: 64px;
+      }
+      
+      .error-message {
+        font-size: 20px;
+      }
+      
+      .error-description {
+        font-size: 15px;
+      }
+      
+      .error-mascot {
+        width: 100px;
       }
     }
   </style>
@@ -114,10 +143,10 @@
       <nav>
         <a href="/" class="logo">osu!Skill</a>
         <ul class="nav-links">
-          <li><a href="/">Home</a></li>
-          <li><a href="#about">Wiki</a></li>
-          <li><a href="#contact">Donate</a></li>
-          <li><a href="/leaderboard">Leaderboard</a></li>
+          <li class="nav-item"><a href="/">Home</a></li>
+          <li class="nav-item"><a href="#about">Wiki</a></li>
+          <li class="nav-item"><a href="#contact">Donate</a></li>
+          <li class="nav-item"><a href="/leaderboard">Leaderboard</a></li>
           <!-- Wrap user card and logout in a container -->
           <li class="user-area">
             <a href="{{ '/dashboard' if username else '/login' }}" class="user-card">
@@ -133,7 +162,35 @@
             {% endif %}
           </li>
         </ul>
+        <div class="nav-mobile">
+          <div class="user-area-mobile">
+            <a href="{{ '/dashboard' if username else '/login' }}" class="user-card">
+              <img
+                src="{{ user_avatar or 'https://a.ppy.sh/14752899?1628953484.png' }}"
+                alt="User Avatar"
+                class="user-avatar"
+              />
+              <span class="username">{{ username or 'Guest' }}</span>
+            </a>
+            {% if username %}
+              <a href="{{ url_for('auth.logout') }}" class="logout-link">Logout</a>
+            {% endif %}
+          </div>
+          <div class="hamburger" onclick="toggleMobileMenu()">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
       </nav>
+      <div class="mobile-menu" id="mobileMenu">
+        <ul>
+          <li><a href="/">Home</a></li>
+          <li><a href="#about">Wiki</a></li>
+          <li><a href="#contact">Donate</a></li>
+          <li><a href="/leaderboard">Leaderboard</a></li>
+        </ul>
+      </div>
     </div>
   </header>
 
@@ -175,5 +232,12 @@
       </div>
     </div>
   </footer>
+
+  <script>
+    function toggleMobileMenu() {
+      const mobileMenu = document.getElementById('mobileMenu');
+      mobileMenu.classList.toggle('active');
+    }
+  </script>
 </body>
 </html>

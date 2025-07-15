@@ -342,62 +342,231 @@
       box-shadow: 0 0 8px rgba(0, 255, 127, 0.4);
     }
     
-    @media (max-width: 1024px) {
+    .cache-indicator {
+      font-size: 12px;
+      color: var(--color-text-light);
+      margin-top: 10px;
+      opacity: 0.7;
+    }
+
+    /* Mobile Responsive Styles */
+    @media (max-width: 768px) {
+      .leaderboard-container {
+        padding: 20px 15px;
+      }
+
+      .leaderboard-title {
+        font-size: 28px;
+      }
+
+      .leaderboard-subtitle {
+        font-size: 16px;
+      }
+
+      .stats-summary {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+        margin-bottom: 20px;
+      }
+
+      .stat-card {
+        padding: 15px;
+      }
+
+      .stat-value {
+        font-size: 20px;
+      }
+
+      .filters {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+      }
+
+      .filter-select {
+        width: 100%;
+        padding: 10px 12px;
+      }
+
+      .table-header,
+      .table-row {
+        grid-template-columns: 50px 1fr 70px 70px 90px;
+        gap: 10px;
+        padding: 12px 15px;
+        font-size: 14px;
+      }
+
+      .table-header {
+        padding: 15px;
+      }
+
+      .confidence, .skill-match { display: none; }
+
+      .player-avatar {
+        width: 32px;
+        height: 32px;
+      }
+
+      .player-name {
+        font-size: 14px;
+      }
+
+      .player-rank {
+        font-size: 11px;
+      }
+
+      .skill-cell {
+        font-size: 14px;
+      }
+
+      .rank-cell {
+        font-size: 16px;
+      }
+
+      .verdict-badge {
+        font-size: 10px;
+        padding: 3px 6px;
+        min-width: 50px;
+      }
+
+      .you-badge {
+        font-size: 8px;
+        padding: 1px 4px;
+      }
+
+      .section-title {
+        font-size: 18px;
+        margin-bottom: 10px;
+      }
+
+      .empty-state {
+        padding: 40px 15px;
+      }
+
+      .empty-state h3 {
+        font-size: 20px;
+      }
+
+      .empty-state p {
+        font-size: 14px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .leaderboard-container {
+        padding: 15px 10px;
+      }
+
+      .leaderboard-title {
+        font-size: 24px;
+      }
+
+      .leaderboard-subtitle {
+        font-size: 14px;
+      }
+
+      .stats-summary {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+
+      .stat-card {
+        padding: 12px;
+      }
+
+      .stat-value {
+        font-size: 18px;
+      }
+
+      .stat-label {
+        font-size: 12px;
+      }
+
+      .table-header,
+      .table-row {
+        grid-template-columns: 40px 1fr 60px 70px;
+        gap: 8px;
+        padding: 10px 12px;
+        font-size: 12px;
+      }
+
+      .table-header {
+        padding: 12px;
+      }
+
+      .peak-skill { display: none; }
+
+      .player-avatar {
+        width: 28px;
+        height: 28px;
+      }
+
+      .player-name {
+        font-size: 12px;
+      }
+
+      .player-rank {
+        font-size: 10px;
+      }
+
+      .skill-cell {
+        font-size: 12px;
+      }
+
+      .rank-cell {
+        font-size: 14px;
+      }
+
+      .verdict-badge {
+        font-size: 9px;
+        padding: 2px 4px;
+        min-width: 40px;
+      }
+
+      .you-badge {
+        font-size: 7px;
+        padding: 1px 3px;
+        margin-left: 4px;
+      }
+
+      .section-title {
+        font-size: 16px;
+      }
+
+      .cache-indicator {
+        font-size: 11px;
+      }
+
+      .last-updated {
+        font-size: 12px;
+      }
+    }
+
+    /* Tablet Responsive */
+    @media (min-width: 769px) and (max-width: 1024px) {
       .table-header,
       .table-row {
         grid-template-columns: 50px 1fr 80px 80px 80px 100px;
         gap: 15px;
         font-size: 14px;
       }
-      
+
       .confidence { display: none; }
+
+      .stats-summary {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 15px;
+      }
     }
-    
-    @media (max-width: 768px) {
+
+    /* Large screens adjustment */
+    @media (min-width: 1025px) {
       .table-header,
       .table-row {
-        grid-template-columns: 40px 1fr 70px 70px 90px;
-        gap: 10px;
-        font-size: 12px;
+        grid-template-columns: 60px 1fr 100px 100px 100px 100px 120px;
+        gap: 20px;
+        font-size: 16px;
       }
-      
-      .peak-skill { display: none; }
-      
-      .player-avatar {
-        width: 32px;
-        height: 32px;
-      }
-      
-      .stat-card {
-        padding: 15px;
-      }
-      
-      .stat-value {
-        font-size: 20px;
-      }
-    }
-    
-    @media (max-width: 480px) {
-      .table-header,
-      .table-row {
-        grid-template-columns: 30px 1fr 60px 80px;
-        gap: 8px;
-      }
-      
-      .skill-match { display: none; }
-      
-      .verdict-badge {
-        font-size: 10px;
-        padding: 3px 6px;
-        min-width: 50px;
-      }
-    }
-    
-    .cache-indicator {
-      font-size: 12px;
-      color: var(--color-text-light);
-      margin-top: 10px;
-      opacity: 0.7;
     }
   </style>
 </head>
@@ -407,10 +576,10 @@
       <nav>
         <a href="/" class="logo">osu!Skill</a>
         <ul class="nav-links">
-          <li><a href="/">Home</a></li>
-          <li><a href="#about">Wiki</a></li>
-          <li><a href="#contact">Donate</a></li>
-          <li><a href="/leaderboard">Leaderboard</a></li>
+          <li class="nav-item"><a href="/">Home</a></li>
+          <li class="nav-item"><a href="#about">Wiki</a></li>
+          <li class="nav-item"><a href="#contact">Donate</a></li>
+          <li class="nav-item"><a href="/leaderboard">Leaderboard</a></li>
           <li class="user-area">
             <a href="{{ '/dashboard' if username else '/login' }}" class="user-card">
               <img src="{{ user_avatar or 'https://a.ppy.sh/14752899?1628953484.png' }}" 
@@ -422,7 +591,32 @@
             {% endif %}
           </li>
         </ul>
+        <div class="nav-mobile">
+          <div class="user-area-mobile">
+            <a href="{{ '/dashboard' if username else '/login' }}" class="user-card">
+              <img src="{{ user_avatar or 'https://a.ppy.sh/14752899?1628953484.png' }}" 
+                   alt="User Avatar" class="user-avatar">
+              <span class="username">{{ username or 'Guest' }}</span>
+            </a>
+            {% if username %}
+              <a href="{{ url_for('auth.logout') }}" class="logout-link">Logout</a>
+            {% endif %}
+          </div>
+          <div class="hamburger" onclick="toggleMobileMenu()">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
       </nav>
+      <div class="mobile-menu" id="mobileMenu">
+        <ul>
+          <li><a href="/">Home</a></li>
+          <li><a href="#about">Wiki</a></li>
+          <li><a href="#contact">Donate</a></li>
+          <li><a href="/leaderboard">Leaderboard</a></li>
+        </ul>
+      </div>
     </div>
   </header>
 
