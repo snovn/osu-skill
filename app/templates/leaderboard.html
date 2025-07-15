@@ -154,7 +154,12 @@
       </div>
     </div>
   </footer>
-
+  <script>
+    function toggleMobileMenu() {
+      const mobileMenu = document.getElementById('mobileMenu');
+      mobileMenu.classList.toggle('active');
+    }
+  </script>
   <script src="{{ url_for('static', filename='js/leaderboard.js') }}"></script>
   <script src="{{ url_for('static', filename='js/loader.js') }}"></script>
 </body>
