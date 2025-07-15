@@ -132,6 +132,8 @@ def dashboard():
             print(f"Found cached analysis: {cached_analysis.get('created_at')}")
             if is_cache_valid(cached_analysis, 30):  # 30 minutes cache
                 print("Using cached analysis")
+                # CRITICAL FIX: Ensure leaderboard is updated with cached analysis
+                db.update_leaderboard(user_id, cached_analysis)
                 return render_template('dashboard.html',
                                      username=username,
                                      user_info=user_info,
@@ -162,16 +164,18 @@ def dashboard():
                                  username=username,
                                  error="Failed to analyze user skill")
         
-        # Save analysis result
+        # CRITICAL FIX: Save analysis BEFORE updating leaderboard
         print(f"Saving analysis result for user_id: {user_id}")
         analysis_id = db.save_analysis_result(user_id, analysis_result)
         
-        if analysis_id:
-            print(f"Analysis saved with ID: {analysis_id}")
-        else:
+        if not analysis_id:
             print("Failed to save analysis result")
+            return render_template('dashboard.html',
+                                 username=username,
+                                 error="Failed to save analysis result")
         
-        # Update leaderboard
+        # Update leaderboard with the same analysis result
+        print(f"Updating leaderboard for user_id: {user_id}")
         db.update_leaderboard(user_id, analysis_result)
         
         print(f"Analysis completed in {time.time() - start_time:.2f} seconds")
@@ -478,3 +482,18 @@ def api_wipe():
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@analysis_bp.route('/api/admin/force_reanalyze/<username>')
+@admin_required
+def force_reanalyze_user(username):
+    db, osu_client, analyzer = get_components()
+    user_info = osu_client.get_user_info(username)
+    if not user_info:
+        return jsonify({'error': 'User not found'}), 404
+    user_id = db.upsert_user(user_info)
+    user_data = osu_client.get_comprehensive_user_data(username)
+    analysis = analyzer.analyze_user_skill(user_data)
+    db.save_analysis_result(user_id, analysis)
+    db.update_leaderboard(user_id, analysis)
+    return jsonify({'success': True, 'verdict': analysis['verdict']})
