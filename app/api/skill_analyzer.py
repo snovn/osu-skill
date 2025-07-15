@@ -457,39 +457,40 @@ class SkillAnalyzer:
             insights.append("Limited data available for comprehensive analysis")
             return insights
 
-        # Check age of top plays
+        # --- Insight 1: Top play age ---
         nine_months_ago = datetime.now(pytz.UTC) - timedelta(days=270)
-        old_top_plays = 0
-
-        for play in valid_top_plays[:10]:
-            try:
-                play_date = datetime.fromisoformat(play['created_at'].replace('Z', '+00:00'))
-                if play_date < nine_months_ago:
-                    old_top_plays += 1
-            except:
-                continue
-
+        old_top_plays = sum(
+            1 for play in valid_top_plays[:10]
+            if 'created_at' in play and datetime.fromisoformat(play['created_at'].replace('Z', '+00:00')) < nine_months_ago
+        )
         if old_top_plays > 7:
             insights.append("Most top plays are quite old - consider setting new personal bests")
 
-        # Compare star ratings
+        # --- Insight 2: Star rating gap (recent vs. top) ---
         if len(valid_top_plays) >= 5 and len(valid_recent_plays) >= 5:
-            avg_top_sr = sum(
-                p.get('beatmap_full', {}).get('difficulty_rating', 0) 
-                for p in valid_top_plays[:10]
-            ) / min(10, len(valid_top_plays))
-
-            avg_recent_sr = sum(
-                p.get('beatmap_full', {}).get('difficulty_rating', 0) 
-                for p in valid_recent_plays[:10]
-            ) / min(10, len(valid_recent_plays))
+            avg_top_sr = sum(p.get('beatmap_full', {}).get('difficulty_rating', 0) for p in valid_top_plays[:10]) / 10
+            avg_recent_sr = sum(p.get('beatmap_full', {}).get('difficulty_rating', 0) for p in valid_recent_plays[:10]) / 10
 
             if avg_recent_sr < avg_top_sr * 0.7:
                 insights.append("Recent plays are significantly easier than your peak performance")
             elif avg_recent_sr > avg_top_sr * 1.15:
                 insights.append("You're attempting harder maps than your current top plays")
 
-        # Check retry rate
+        # --- Insight 3: Accuracy consistency & quality ---
+        if len(valid_recent_plays) > 6:
+            accuracies = [p.get('accuracy', 0) * 100 for p in valid_recent_plays]
+            if len(accuracies) > 1:
+                acc_std = statistics.stdev(accuracies)
+                avg_acc = statistics.mean(accuracies)
+                if acc_std > 12:
+                    insights.append("Consider working on accuracy consistency")
+                elif acc_std < 5:
+                    if avg_acc >= 90:
+                        insights.append("Excellent aim consistency with high accuracy!")
+                    elif avg_acc >= 70:
+                        insights.append("Good aim consistency, consider improving accuracy")
+
+        # --- Insight 4: Retry behavior ---
         plays_with_retries = self.detect_retries(valid_recent_plays)
         retry_count = sum(1 for play in plays_with_retries if play.get('is_retry', False))
         retry_rate = retry_count / len(plays_with_retries) if plays_with_retries else 0
@@ -499,17 +500,7 @@ class SkillAnalyzer:
         elif retry_rate < 0.15:
             insights.append("Good play selection - low retry rate shows consistency")
 
-        # Check accuracy consistency
-        if len(valid_recent_plays) > 6:
-            accuracies = [p.get('accuracy', 0) * 100 for p in valid_recent_plays]
-            if len(accuracies) > 1:
-                acc_std = statistics.stdev(accuracies)
-                if acc_std > 12:
-                    insights.append("Consider working on accuracy consistency")
-                elif acc_std < 5:
-                    insights.append("Excellent accuracy consistency!")
-
-        # Check mod usage
+        # --- Insight 5: Mod variety ---
         mod_usage = {}
         for play in valid_recent_plays:
             mods = play.get('mods', [])
@@ -522,6 +513,7 @@ class SkillAnalyzer:
             insights.append("Good mod variety - you're developing well-rounded skills")
 
         return insights
+
 
     def analyze_user_skill(self, user_data: Dict) -> Dict:
         """Perform comprehensive skill analysis"""
