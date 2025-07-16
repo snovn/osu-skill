@@ -282,38 +282,35 @@ class SupabaseDatabase:
             return []
 
     def get_leaderboard_stats(self, verdict_filter: str = None) -> Dict:
-        """Get leaderboard statistics - OPTIMIZED"""
         try:
-            # Single query with aggregation
-            query = self.client.table('leaderboard').select('recent_skill, confidence')
-            
+            count_query = self.client.table('leaderboard').select('id', count='exact')
             if verdict_filter and verdict_filter != 'all':
-                query = query.eq('verdict', verdict_filter)
-            
-            response = query.execute()
-            
-            if not response.data:
-                return {
-                    'total_players': 0,
-                    'avg_skill': 0,
-                    'top_skill': 0,
-                    'avg_confidence': 0
-                }
-            
-            # Process data in memory (faster than multiple DB queries)
-            skills = [row['recent_skill'] for row in response.data if row['recent_skill']]
-            confidences = [row['confidence'] for row in response.data if row['confidence']]
-            
+                count_query = count_query.eq('verdict', verdict_filter)
+            count_response = count_query.execute()
+            total_players = count_response.count or 0
+
+            data_query = self.client.table('leaderboard').select('recent_skill, confidence')
+            if verdict_filter and verdict_filter != 'all':
+                data_query = data_query.eq('verdict', verdict_filter)
+            data_query = data_query.limit(1000)  # only for avg/top calc
+
+            data_response = data_query.execute()
+            data_rows = data_response.data or []
+
+            skills = [row['recent_skill'] for row in data_rows if row['recent_skill']]
+            confidences = [row['confidence'] for row in data_rows if row['confidence']]
+
             return {
-                'total_players': len(response.data),
+                'total_players': total_players,  # ✅ now correct
                 'avg_skill': sum(skills) / len(skills) if skills else 0,
                 'top_skill': max(skills) if skills else 0,
                 'avg_confidence': sum(confidences) / len(confidences) if confidences else 0
             }
-            
+
         except Exception as e:
             print(f"Error getting leaderboard stats: {e}")
-            return {'total_users': 0, 'avg_skill': 0, 'top_skill': 0, 'avg_confidence': 0}
+            return {'total_players': 0, 'avg_skill': 0, 'top_skill': 0, 'avg_confidence': 0}
+
 
     def get_user_stats(self) -> Dict:
         """Get database statistics - OPTIMIZED"""
