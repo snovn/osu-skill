@@ -30,118 +30,201 @@ class SupabaseDatabase:
             return None
     
     def upsert_user(self, user_data: Dict) -> Optional[int]:
-        """Insert or update user data"""
+        """Insert or update user data with better error handling"""
         try:
+            # Validate input
+            if not isinstance(user_data, dict):
+                raise ValueError(f"Invalid user_data type: {type(user_data)}")
+            
+            user_id = user_data.get('id')
+            if not user_id:
+                raise ValueError("Missing user ID in user_data")
+            
             # Check if user exists
-            existing_user = self.get_user_by_osu_id(user_data['id'])
+            existing_user = self.get_user_by_osu_id(user_id)
             
             timestamp = datetime.now(pytz.UTC).isoformat()
             
+            # Build user record with safe defaults
             user_record = {
-                'osu_id': user_data['id'],
-                'username': user_data.get('username'),
-                'avatar_url': user_data.get('avatar_url'),
+                'osu_id': user_id,
+                'username': user_data.get('username', ''),
+                'avatar_url': user_data.get('avatar_url', ''),
                 'rank': user_data.get('statistics', {}).get('global_rank'),
                 'pp': user_data.get('statistics', {}).get('pp'),
                 'playcount': user_data.get('statistics', {}).get('play_count'),
                 'updated_at': timestamp
             }
             
+            # Validate numeric fields
+            for field in ['rank', 'pp', 'playcount']:
+                if user_record[field] is not None and not isinstance(user_record[field], (int, float)):
+                    print(f"Warning: Invalid {field} value: {user_record[field]}, setting to None")
+                    user_record[field] = None
+            
             if existing_user:
                 # Update existing user
-                response = self.client.table('users').update(user_record).eq('osu_id', user_data['id']).execute()
-                print(f"Updated user {user_data.get('username')} (ID: {existing_user['id']})")
-                return existing_user['id']
+                response = self.client.table('users').update(user_record).eq('osu_id', user_id).execute()
+                if response.data:
+                    print(f"Updated user {user_data.get('username')} (ID: {existing_user['id']})")
+                    return existing_user['id']
+                else:
+                    print(f"Warning: User update returned no data for osu_id: {user_id}")
+                    return existing_user['id']  # Return existing ID as fallback
             else:
                 # Insert new user
                 user_record['created_at'] = timestamp
                 response = self.client.table('users').insert(user_record).execute()
                 
-                if response.data:
-                    user_id = response.data[0]['id']
-                    print(f"Created new user {user_data.get('username')} (ID: {user_id})")
-                    return user_id
-                    
+                if response.data and len(response.data) > 0:
+                    new_user_id = response.data[0]['id']
+                    print(f"Created new user {user_data.get('username')} (ID: {new_user_id})")
+                    return new_user_id
+                else:
+                    print(f"Error: User creation returned no data for osu_id: {user_id}")
+                    return None
+                        
         except Exception as e:
-            print(f"Error upserting user: {e}")
+            print(f"Error upserting user with osu_id {user_data.get('id', 'unknown')}: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def save_analysis_result(self, user_id: int, analysis_result: Dict) -> Optional[int]:
-        """Save analysis result to database"""
+        """Save analysis result to database with better error handling"""
         try:
+            # Validate input
+            if not isinstance(user_id, int) or user_id <= 0:
+                raise ValueError(f"Invalid user_id: {user_id}")
+            
+            if not isinstance(analysis_result, dict):
+                raise ValueError(f"Invalid analysis_result type: {type(analysis_result)}")
+            
             timestamp = datetime.now(pytz.UTC).isoformat()
             
+            # Ensure all required fields have default values
             record = {
                 'user_id': user_id,
-                'recent_skill': analysis_result.get('recent_skill', 0),
-                'peak_skill': analysis_result.get('peak_skill', 0),
-                'skill_match': analysis_result.get('skill_match', 0),
-                'confidence': analysis_result.get('confidence', 0),
-                'verdict': analysis_result.get('verdict', 'unknown'),
+                'recent_skill': analysis_result.get('recent_skill', 0) or 0,
+                'peak_skill': analysis_result.get('peak_skill', 0) or 0,
+                'skill_match': analysis_result.get('skill_match', 0) or 0,
+                'confidence': analysis_result.get('confidence', 0) or 0,
+                'verdict': analysis_result.get('verdict', 'unknown') or 'unknown',
                 'insights': json.dumps(analysis_result.get('insights', [])),
                 'confidence_factors': json.dumps(analysis_result.get('confidence_factors', {})),
                 'created_at': timestamp
             }
             
+            # Validate numeric fields
+            for field in ['recent_skill', 'peak_skill', 'skill_match', 'confidence']:
+                if not isinstance(record[field], (int, float)) or record[field] < 0:
+                    print(f"Warning: Invalid {field} value: {record[field]}, setting to 0")
+                    record[field] = 0
+            
             response = self.client.table('analysis_results').insert(record).execute()
             
-            if response.data:
+            if response.data and len(response.data) > 0:
                 analysis_id = response.data[0]['id']
-                print(f"Saved analysis result (ID: {analysis_id}) for user_id: {user_id}")
+                print(f"Successfully saved analysis result (ID: {analysis_id}) for user_id: {user_id}")
                 return analysis_id
-                
-        except Exception as e:
-            print(f"Error saving analysis result: {e}")
-            return None
-    
-    def get_latest_analysis(self, user_id: int) -> Optional[Dict]:
-        """Get latest analysis result for user"""
-        try:
-            response = (self.client.table('analysis_results')
-                       .select('*')
-                       .eq('user_id', user_id)
-                       .order('created_at', desc=True)
-                       .limit(1)
-                       .execute())
-            
-            if response.data:
-                row = response.data[0]
-                result = {
-                    'recent_skill': row['recent_skill'],
-                    'peak_skill': row['peak_skill'],
-                    'skill_match': row['skill_match'],
-                    'confidence': row['confidence'],
-                    'verdict': row['verdict'],
-                    'insights': json.loads(row['insights']) if row['insights'] else [],
-                    'confidence_factors': json.loads(row['confidence_factors']) if row['confidence_factors'] else {},
-                    'created_at': row['created_at']
-                }
-                print(f"Retrieved cached analysis for user_id {user_id}: {row['created_at']}")
-                return result
             else:
-                print(f"No cached analysis found for user_id {user_id}")
+                print(f"No data returned from analysis insert for user_id: {user_id}")
                 return None
                 
         except Exception as e:
-            print(f"Error getting latest analysis: {e}")
+            print(f"Error saving analysis result for user_id {user_id}: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
+    def get_latest_analysis(self, user_id: int) -> Optional[Dict]:
+        """Get latest analysis result for user with better error handling"""
+        try:
+            if not isinstance(user_id, int) or user_id <= 0:
+                print(f"Invalid user_id provided: {user_id}")
+                return None
+            
+            response = (self.client.table('analysis_results')
+                    .select('*')
+                    .eq('user_id', user_id)
+                    .order('created_at', desc=True)
+                    .limit(1)
+                    .execute())
+            
+            if response.data and len(response.data) > 0:
+                row = response.data[0]
+                
+                # Validate the data before processing
+                result = {
+                    'recent_skill': row.get('recent_skill', 0) or 0,
+                    'peak_skill': row.get('peak_skill', 0) or 0,
+                    'skill_match': row.get('skill_match', 0) or 0,
+                    'confidence': row.get('confidence', 0) or 0,
+                    'verdict': row.get('verdict', 'unknown') or 'unknown',
+                    'insights': [],
+                    'confidence_factors': {},
+                    'created_at': row.get('created_at')
+                }
+                
+                # Safely parse JSON fields
+                try:
+                    if row.get('insights'):
+                        result['insights'] = json.loads(row['insights'])
+                except (json.JSONDecodeError, TypeError) as e:
+                    print(f"Warning: Failed to parse insights JSON: {e}")
+                    result['insights'] = []
+                
+                try:
+                    if row.get('confidence_factors'):
+                        result['confidence_factors'] = json.loads(row['confidence_factors'])
+                except (json.JSONDecodeError, TypeError) as e:
+                    print(f"Warning: Failed to parse confidence_factors JSON: {e}")
+                    result['confidence_factors'] = {}
+                
+                print(f"Retrieved cached analysis for user_id {user_id}: {result['created_at']}")
+                return result
+            else:
+                print(f"No cached analysis found for user_id {user_id} (this is normal for new users)")
+                return None
+                
+        except Exception as e:
+            print(f"Error getting latest analysis for user_id {user_id}: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def update_leaderboard(self, user_id: int, analysis_result: Dict):
-        """Update user's leaderboard position with full analysis data"""
+        """Update user's leaderboard position with better error handling for new users"""
         try:
+            # Validate inputs
+            if not isinstance(user_id, int) or user_id <= 0:
+                raise ValueError(f"Invalid user_id: {user_id}")
+            
             if not isinstance(analysis_result, dict):
                 raise TypeError(f"Expected dict for analysis_result, got {type(analysis_result).__name__}")
 
-            # Calculate skill score with proper default values
+            # Calculate skill score with robust default values
             recent_skill = analysis_result.get('recent_skill', 0) or 0
             peak_skill = analysis_result.get('peak_skill', 0) or 0
             skill_match = analysis_result.get('skill_match', 0) or 0
             confidence = analysis_result.get('confidence', 0) or 0
             verdict = analysis_result.get('verdict', 'unknown') or 'unknown'
             
-            # Improved skill score calculation
+            # Validate numeric fields
+            for field_name, value in [('recent_skill', recent_skill), ('peak_skill', peak_skill), 
+                                    ('skill_match', skill_match), ('confidence', confidence)]:
+                if not isinstance(value, (int, float)) or value < 0:
+                    print(f"Warning: Invalid {field_name} value: {value}, setting to 0")
+                    locals()[field_name] = 0
+            
+            # Improved skill score calculation with bounds checking
             normalized_confidence = max(30, min(confidence, 100))
             skill_score = (recent_skill * 0.7 + peak_skill * 0.3) * (normalized_confidence / 100)
+            
+            # Ensure skill_score is valid
+            if not isinstance(skill_score, (int, float)) or skill_score < 0:
+                print(f"Warning: Invalid calculated skill_score: {skill_score}, setting to 0")
+                skill_score = 0
 
             timestamp = datetime.now(pytz.UTC).isoformat()
             
@@ -156,16 +239,25 @@ class SupabaseDatabase:
                 'updated_at': timestamp
             }
             
-            # Use upsert to insert or update
+            # Use upsert to handle both new and existing users
             response = self.client.table('leaderboard').upsert(record, on_conflict='user_id').execute()
             
-            # Update rank positions
-            self._update_leaderboard_ranks()
-            
-            print(f"Updated leaderboard for user_id {user_id} with skill_score {skill_score:.2f}")
-            
+            if response.data:
+                print(f"Successfully updated leaderboard for user_id {user_id} with skill_score {skill_score:.2f}")
+                
+                # Update rank positions after successful upsert
+                try:
+                    self._update_leaderboard_ranks()
+                except Exception as rank_error:
+                    print(f"Warning: Failed to update ranks after leaderboard update: {rank_error}")
+                    # Don't fail the whole operation if rank update fails
+            else:
+                print(f"Warning: No data returned from leaderboard upsert for user_id {user_id}")
+                
         except Exception as e:
-            print(f"Error updating leaderboard: {e}")
+            print(f"Error updating leaderboard for user_id {user_id}: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _update_leaderboard_ranks(self):
         """Update all rank positions using PostgreSQL window function"""

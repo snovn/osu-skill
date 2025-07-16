@@ -128,23 +128,27 @@ def dashboard():
         print(f"Checking cache for user_id: {user_id}")
         cached_analysis = db.get_latest_analysis(user_id)
         
-        if cached_analysis:
-            print(f"Found cached analysis: {cached_analysis.get('created_at')}")
-            if is_cache_valid(cached_analysis, 30):  # 30 minutes cache
-                print("Using cached analysis")
-                # CRITICAL FIX: Ensure leaderboard is updated with cached analysis
+        # Use cached analysis if valid
+        if cached_analysis and is_cache_valid(cached_analysis, 30):
+            print("Using cached analysis")
+            # Ensure leaderboard is updated with cached analysis
+            try:
                 db.update_leaderboard(user_id, cached_analysis)
-                return render_template('dashboard.html',
-                                     username=username,
-                                     user_info=user_info,
-                                     analysis=cached_analysis,
-                                     from_cache=True)
-            else:
-                print("Cache expired, performing new analysis")
-        else:
-            print("No cached analysis found, performing new analysis")
+            except Exception as e:
+                print(f"Warning: Failed to update leaderboard with cached data: {e}")
+            
+            return render_template('dashboard.html',
+                                 username=username,
+                                 user_info=user_info,
+                                 analysis=cached_analysis,
+                                 from_cache=True)
         
-        # Perform new analysis
+        # Perform new analysis for new users or when cache is invalid
+        if cached_analysis:
+            print("Cache expired, performing new analysis")
+        else:
+            print("No cached analysis found (new user), performing initial analysis")
+        
         print(f"Starting comprehensive analysis for {username}...")
         start_time = time.time()
         
@@ -164,30 +168,41 @@ def dashboard():
                                  username=username,
                                  error="Failed to analyze user skill")
         
-        # CRITICAL FIX: Save analysis BEFORE updating leaderboard
-        print(f"Saving analysis result for user_id: {user_id}")
-        analysis_id = db.save_analysis_result(user_id, analysis_result)
-        
-        if not analysis_id:
-            print("Failed to save analysis result")
+        # Database transaction: Save analysis and update leaderboard atomically
+        try:
+            # Save analysis result first
+            print(f"Saving analysis result for user_id: {user_id}")
+            analysis_id = db.save_analysis_result(user_id, analysis_result)
+            
+            if not analysis_id:
+                raise Exception("Failed to save analysis result to database")
+            
+            # Update leaderboard with the same analysis result
+            print(f"Updating leaderboard for user_id: {user_id}")
+            db.update_leaderboard(user_id, analysis_result)
+            
+            print(f"Analysis completed successfully in {time.time() - start_time:.2f} seconds")
+            
+            # Add timestamp to analysis result for template
+            analysis_result['created_at'] = datetime.now(pytz.UTC).isoformat()
+            
             return render_template('dashboard.html',
                                  username=username,
-                                 error="Failed to save analysis result")
-        
-        # Update leaderboard with the same analysis result
-        print(f"Updating leaderboard for user_id: {user_id}")
-        db.update_leaderboard(user_id, analysis_result)
-        
-        print(f"Analysis completed in {time.time() - start_time:.2f} seconds")
-        
-        # Add timestamp to analysis result for template
-        analysis_result['created_at'] = datetime.now(pytz.UTC).isoformat()
-        
-        return render_template('dashboard.html',
-                             username=username,
-                             user_info=user_data['user_info'],
-                             analysis=analysis_result,
-                             from_cache=False)
+                                 user_info=user_data['user_info'],
+                                 analysis=analysis_result,
+                                 from_cache=False)
+            
+        except Exception as db_error:
+            print(f"Database error during analysis save: {db_error}")
+            # Even if database save fails, return the analysis result
+            # so the user can see their analysis
+            analysis_result['created_at'] = datetime.now(pytz.UTC).isoformat()
+            return render_template('dashboard.html',
+                                 username=username,
+                                 user_info=user_data['user_info'],
+                                 analysis=analysis_result,
+                                 from_cache=False,
+                                 warning="Analysis completed but may not be saved to leaderboard")
     
     except Exception as e:
         print(f"Dashboard error: {str(e)}")
@@ -196,8 +211,6 @@ def dashboard():
         return render_template('dashboard.html',
                              username=username,
                              error=f"Error loading dashboard: {str(e)}")
-
-
 @analysis_bp.route('/analyze')
 def analyze_user():
     """Redirect to dashboard - analysis is now handled there"""
@@ -555,3 +568,4 @@ def reanalyze_all_users():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
