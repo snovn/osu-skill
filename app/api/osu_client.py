@@ -132,21 +132,30 @@ class OsuClient:
         """Get user profile information with caching"""
         if not username:
             return None
-        
+
         # Check user cache first
         with self.cache_lock:
             if username in self.user_cache:
                 cached_data, cached_time = self.user_cache[username]
                 if time.time() - cached_time < 600:  # 10 minute cache
                     return cached_data
-        
-        user_data = self.make_request(f"users/{username}/osu", cache_timeout=600)
-        
+
+        # If it's all digits, tell API to treat it as a username
+        if username.isdigit():
+            endpoint = f"users/{username}/osu"
+            params = {'key': 'username'}
+        else:
+            endpoint = f"users/{username}/osu"
+            params = None
+
+        user_data = self.make_request(endpoint, params=params, cache_timeout=600)
+
         if user_data:
             with self.cache_lock:
                 self.user_cache[username] = (user_data, time.time())
-        
+
         return user_data
+
     
     def get_user_scores(self, user_id: int, score_type: str = 'best', limit: int = 50) -> List[Dict]:
         """Get user scores (best/recent) with caching"""

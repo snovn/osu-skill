@@ -27,6 +27,7 @@ ADMIN_USERS = {
     'snovn',  # Replace with your actual osu! username
     # Add more admin usernames as needed
 }
+
 def is_admin(username=None):
     """Check if user is an admin"""
     if username is None:
@@ -46,6 +47,11 @@ def admin_required(f):
         
         return f(*args, **kwargs)
     return decorated_function
+
+def can_access_user(username):
+    """Allow access if current user matches or is an admin"""
+    current_user = session.get('username')
+    return current_user == username or is_admin(current_user)
 
 def get_components():
     """Get singleton instances of components"""
@@ -363,8 +369,9 @@ def debug_cache(username):
         return jsonify({'error': 'Not authenticated'}), 401
     
     # SECURITY: Only allow users to access their own cache data
-    if session['username'] != username:
-        return jsonify({'error': 'Access denied - can only view your own cache data'}), 403
+    if not can_access_user(username):
+        return jsonify({'error': 'Access denied'}), 403
+
     
     db, osu_client, _ = get_components()
     
@@ -404,8 +411,9 @@ def api_user_history(username):
         return jsonify({'error': 'Not authenticated'}), 401
     
     # Security: Only allow users to access their own history
-    if session['username'] != username:
+    if not can_access_user(username):
         return jsonify({'error': 'Access denied'}), 403
+
     
     db, osu_client, _ = get_components()
     
