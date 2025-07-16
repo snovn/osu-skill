@@ -418,24 +418,35 @@ def api_user_position(username):
     """API endpoint to get user's leaderboard position"""
     if 'username' not in session:
         return jsonify({'error': 'Not authenticated'}), 401
-    
+
     db, osu_client, _ = get_components()
-    
+
     try:
         user_info = osu_client.get_user_info(username)
         if not user_info:
             return jsonify({'error': 'User not found'}), 404
-        
+
         user_id = db.upsert_user(user_info)
+
+        # Get user's leaderboard position
         position = db.get_user_leaderboard_position(user_id)
-        
+
+        # Return with a fallback if not found in leaderboard
+        if not position:
+            return jsonify({
+                'username': username,
+                'position': None,
+                'message': 'User is not ranked yet'
+            }), 200
+
         return jsonify({
             'username': username,
             'position': position
         })
-    
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 @analysis_bp.route('/api/admin/cleanup')
 @admin_required
