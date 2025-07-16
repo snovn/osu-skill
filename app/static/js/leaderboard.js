@@ -80,40 +80,32 @@ async function loadLeaderboard(useCache = true) {
   }
 }
 
-// FIXED: Function to get current user's position from full leaderboard
 async function getCurrentUserPosition() {
   if (!currentUsername) return null;
-  
+
   try {
-    // Fetch full leaderboard to find user's actual position
-    const response = await fetch(`/api/leaderboard?verdict=${currentFilter}&limit=1000`, {
+    const response = await fetch(`/api/user/${currentUsername}/position`, {
       method: 'GET',
-      headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+      headers: { 'Cache-Control': 'no-cache' }
     });
-    
+
     if (!response.ok) return null;
-    
-    const data = await response.json();
-    const fullLeaderboard = data.leaderboard;
-    
-    // Find current user in full leaderboard and get their actual rank
-    for (let i = 0; i < fullLeaderboard.length; i++) {
-      if (fullLeaderboard[i].username === currentUsername) {
-        // Return the user data with their actual rank position
-        return {
-          ...fullLeaderboard[i],
-          rank: i + 1  // Position in the filtered leaderboard
-        };
-      }
+
+    const result = await response.json();
+    if (result && result.position) {
+      return {
+        ...result.position,
+        username: currentUsername
+      };
     }
-    
-    return null; // User not found in leaderboard
-    
+
+    return null;
   } catch (error) {
     console.error('Error fetching user position:', error);
     return null;
   }
 }
+
 
 function updateStats(stats) {
   document.getElementById('total-players').textContent = stats.total_players;

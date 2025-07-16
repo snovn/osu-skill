@@ -459,7 +459,24 @@ class SupabaseDatabase:
         """Get user's current leaderboard position"""
         try:
             response = (self.client.table('leaderboard')
-                       .select('rank_position, recent_skill, peak_skill, skill_match, confidence, verdict, skill_score')
+                       .select('''
+                            rank_position,
+                            recent_skill,
+                            peak_skill,
+                            skill_match,
+                            confidence,
+                            verdict,
+                            skill_score,
+                            updated_at,
+                            user_id,
+                            users (
+                                osu_id,
+                                username,
+                                avatar_url,
+                                rank,
+                                pp
+                            )
+                        ''')
                        .eq('user_id', user_id)
                        .execute())
             
@@ -472,7 +489,12 @@ class SupabaseDatabase:
                     'skill_match': row['skill_match'],
                     'confidence': row['confidence'],
                     'verdict': row['verdict'],
-                    'skill_score': row['skill_score']
+                    'skill_score': row['skill_score'],
+                    'analysis_timestamp': row['updated_at'],
+                    'username': row['users']['username'],
+                    'avatar_url': row['users']['avatar_url'],
+                    'rank_global': row['users']['rank'],
+                    'pp': row['users']['pp']
                 }
             return None
             
