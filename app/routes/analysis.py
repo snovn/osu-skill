@@ -452,13 +452,18 @@ def api_user_position(username):
         # Get user's leaderboard position
         position = db.get_user_leaderboard_position(user_id)
 
-        # Return with a fallback if not found in leaderboard
+        latest_analysis = db.get_latest_analysis(user_id)
+        analysis_timestamp = latest_analysis.get('created_at') if latest_analysis else None
+
         if not position:
             return jsonify({
                 'username': username,
                 'position': None,
                 'message': 'User is not ranked yet'
             }), 200
+
+        # Add timestamp into the position response
+        position['analysis_timestamp'] = analysis_timestamp
 
         return jsonify({
             'username': username,
