@@ -243,17 +243,28 @@ function renderPlayerRow(player, isCurrentUser) {
   const verdictLabel = formatVerdict(player.verdict);
   const verdictClass = `verdict-${player.verdict}`;
 
-  let verdictHTML;
-  if (isExpired) {
-      verdictHTML = `
+
+  // Format with timezone for non-expired
+  const formattedTimeWithZone = player.analysis_timestamp
+    ? new Date(player.analysis_timestamp).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZoneName: 'short' // shows GMT+3, etc.
+      })
+    : null;
+
+  const tooltipText = isExpired
+    ? 'Expired'
+    : (formattedTimeWithZone || '');
+
+  const verdictHTML = tooltipText
+    ? `
       <div class="tooltip">
-          <span class="verdict-badge ${verdictClass}">${verdictLabel}</span>
-          <span class="tooltiptext">Expired</span>
+        <span class="verdict-badge ${verdictClass}">${verdictLabel}</span>
+        <span class="tooltiptext">${tooltipText}</span>
       </div>
-      `;
-  } else {
-      verdictHTML = `<span class="verdict-badge ${verdictClass}">${verdictLabel}</span>`;
-  }
+    `
+    : `<span class="verdict-badge ${verdictClass}">${verdictLabel}</span>`;
 
   const avatarUrl = player.avatar_url || 'https://a.ppy.sh/14752899?1628953484.png';
 
