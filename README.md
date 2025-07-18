@@ -1,6 +1,7 @@
 # osu!Skill
 
 > Discover your true osu! skill beyond PP with smart analysis and leaderboard insight.
+![osu!Skill Banner](https://osuskill.com/static/icons/preview.png)
 
 ## Live Site
 
