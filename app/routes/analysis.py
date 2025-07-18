@@ -103,6 +103,7 @@ def is_cache_valid(cached_analysis, cache_duration_minutes=30):
     except (ValueError, TypeError) as e:
         print(f"Error parsing cache timestamp: {e}")
         return False
+        
 
 @analysis_bp.route('/dashboard')
 def dashboard():
@@ -221,6 +222,10 @@ def dashboard():
 def analyze_user():
     """Redirect to dashboard - analysis is now handled there"""
     return redirect(url_for('analysis.dashboard'))
+
+@analysis_bp.route('/wiki')
+def wiki():
+    return render_template('wiki.html', username=session.get('username'), user_avatar=session.get('avatar_url'))
 
 @analysis_bp.route('/api/analyze/<username>')
 def api_analyze(username):
