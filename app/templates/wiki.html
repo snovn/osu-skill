@@ -1,127 +1,697 @@
-<p>im way too lazy to make this page so ill do it later</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>osu!Skill Wiki - Complete Documentation</title>
+  <meta name="color-scheme" content="dark light">
 
-<h1>osu!Skill Wiki</h1>
-<p>Complete documentation on how osu!Skill analyzes your gameplay and what all the numbers mean.</p>
-<h2>Overview</h2>
-<h3>What is osu!Skill?</h3>
-<p>osu!Skill is a comprehensive skill analysis system that goes beyond the traditional PP (Performance Points) system. It analyzes your recent gameplay against your peak performance to determine your current skill level and consistency.</p>
-<p><strong>Key Philosophy:</strong> Your skill is measured by how well you're currently performing compared to your peak ability, not just your highest PP scores.</p>
-<p>The system uses three main components: <strong>Recent Skill</strong> (your current performance), <strong>Peak Skill</strong> (your best historical performance), and <strong>Skill Match</strong> (how close you are to your peak).</p>
-<h3>Quick Start Guide</h3>
-<ol>
-<li><strong>Check Your Profile</strong> - Log in with your osu! account to see your current skill analysis.</li>
-<li><strong>Understand Your Verdict</strong> - Your verdict tells you how well you're performing compared to your peak.</li>
-<li><strong>Review Insights</strong> - Get personalized recommendations based on your play patterns.</li>
-</ol>
-<h2>Core Metrics</h2>
-<h3>Recent Skill</h3>
-<p>Measures your current skill level based on your recent plays (up to 30, only from the last 24 hours). This considers accuracy, star rating, mods, and temporal decay to emphasize newer plays.</p>
-<p><strong>Range:</strong> 0-200+ (higher is better)</p>
-<h3>Peak Skill</h3>
-<p>Measures your historical peak performance based on your top 25 plays by PP. This represents what you're capable of at your best.</p>
-<p><strong>Range:</strong> 0-200+ (higher is better)</p>
-<h3>Skill Match</h3>
-<p>The percentage of your peak skill that you're currently maintaining. This is the primary indicator of your current form.</p>
-<p><strong>Formula:</strong> <code>(Recent Skill / Peak Skill) × 100 × Reliability Factor</code></p>
-<p><strong>Range:</strong> 0-100% (higher means closer to peak)</p>
-<h3>Confidence</h3>
-<p>Indicates how reliable the analysis is based on data quality, play volume, diversity, and consistency.</p>
-<p><strong>Range:</strong> 0-100% (50%+ recommended)</p>
-<h2>Verdicts Explained</h2>
-<h3>Accurate (92%+)</h3>
-<p>You're performing at or very close to your peak skill level. Your current rank accurately reflects your ability.</p>
-<h3>Slightly Rusty (75-91%)</h3>
-<p>You're performing slightly below your peak but still maintaining good form. Minor practice should restore peak performance.</p>
-<h3>Rusty (55-74%)</h3>
-<p>Noticeable decline from peak performance. You may need more practice to return to your best form.</p>
-<h3>Overranked (35-54%)</h3>
-<p>Significant gap between current and peak performance. Your rank may be inflated compared to current skill.</p>
-<h3>Inactive (&lt;35%)</h3>
-<p>Very low recent activity or performance well below peak. Extended practice needed to restore skill.</p>
-<h3>Insufficient Data</h3>
-<p>Not enough recent plays or confidence too low for reliable analysis. Play more to get accurate results.</p>
-<h2>Calculations</h2>
-<h3>Skill Components</h3>
-<p>Each play is broken down into three skill components:</p>
-<ul>
-<li><strong>Aim Skill (45% weight):</strong> Based on star rating, AR (Approach Rate), and accuracy. Higher star ratings and AR values increase aim skill.</li>
-<li><strong>Speed Skill (35% weight):</strong> Based on BPM and star rating. Faster maps and higher star ratings increase speed skill.</li>
-<li><strong>Accuracy Skill (20% weight):</strong> Rewards precision, especially on harder maps. Accuracy above 90% is heavily weighted.</li>
-</ul>
-<h3>Mod Multipliers</h3>
-<p>Different mods affect skill calculations:</p>
-<p><strong>Single Mods:</strong>
-- HD: 1.06x
-- HR: 1.12x
-- DT/NC: 1.18x
-- EZ: 0.88x
-- HT: 0.82x
-- FL: 1.15x</p>
-<p><strong>Combinations (override single mods):</strong>
-- DTHRHD: 1.35x
-- DTHR: 1.28x
-- DTHD: 1.24x
-- HRHD: 1.18x</p>
-<h3>Temporal Decay</h3>
-<p>Older plays are weighted less to emphasize recent performance:</p>
-<ul>
-<li>≤14 days: 1.0x</li>
-<li>15-30 days: 0.95x</li>
-<li>31-60 days: 0.85x</li>
-<li>61-90 days: 0.75x</li>
-<li>91-180 days: 0.6x</li>
-<li>
-<blockquote>
-<p>180 days: exponential decay</p>
-</blockquote>
-</li>
-</ul>
-<h2>Advanced Features</h2>
-<h3>Confidence System</h3>
-<p>Confidence indicates how reliable the analysis is. It's calculated from four factors:</p>
-<h4>Volume (35%)</h4>
-<p>Based on number of recent plays. More plays provide more data points for analysis.</p>
-<p><strong>Best results:</strong> 25+ plays</p>
-<h4>Diversity (25%)</h4>
-<p>Based on unique beatmaps played. Playing different maps prevents over-specialization.</p>
-<p><strong>Best results:</strong> 15+ unique maps</p>
-<h4>Recency (25%)</h4>
-<p>Based on how spread out your plays are across different calendar weeks.</p>
-<p><strong>Best results:</strong> 6+ different weeks</p>
-<h4>Consistency (15%)</h4>
-<p>Based on accuracy standard deviation. More consistent accuracy indicates stable skill.</p>
-<p><strong>Best results:</strong> &lt;5% accuracy deviation</p>
-<p><strong>Confidence Formula:</strong> <code>(Volume × 0.35) + (Diversity × 0.25) + (Recency × 0.25) + (Consistency × 0.15)</code></p>
-<h3>Data Requirements</h3>
-<h4>Minimum Data</h4>
-<ul>
-<li><strong>Recent Plays:</strong> 6 minimum, 30 maximum (used plays from the last 24 hours)</li>
-<li><strong>Top Plays:</strong> 8 minimum, 25 maximum used</li>
-<li><strong>Confidence Threshold:</strong> 20% minimum for basic analysis</li>
-</ul>
-<h4>Data Validation</h4>
-<p>Each play must have valid:
-- Accuracy (0-100%)
-- Star rating (0-12*)
-- AR (0-11)
-- BPM (30-600)
-- Timestamp</p>
-<h2>Limitations</h2>
-<p><strong>Important:</strong> osu!Skill is a supplementary tool, not a replacement for official rankings.</p>
-<h3>System Limitations</h3>
-<ul>
-<li><strong>Data Dependency:</strong> Requires sufficient recent play data for accurate analysis</li>
-<li><strong>Skill Aspects:</strong> May not capture all skill nuances (reading, flow, etc.)</li>
-<li><strong>Mod Complexity:</strong> Simplified mod multipliers may not reflect true difficulty</li>
-<li><strong>Map Variety:</strong> Analysis quality depends on map diversity</li>
-</ul>
-<h3>Best Practices</h3>
-<ul>
-<li>Play regularly for accurate analysis</li>
-<li>Play diverse maps and difficulties</li>
-<li>Focus on improvement, not just the numbers</li>
-<li>Use insights to identify improvement areas</li>
-<li>Aim for 50%+ confidence for reliable results</li>
-</ul>
-<hr />
-<p>© 2025 osu!Skill. Built for the osu! community with ❤️</p>
+  <!-- SEO -->
+  <meta name="description" content="Complete documentation on how osu!Skill analyzes your gameplay and what all the numbers mean." />
+  <meta name="keywords" content="osu, osu!skill, wiki, documentation, pp analyzer, skill analysis, osu ranking" />
+  <meta name="author" content="osu!Skill - snovn" />
+  <meta name="robots" content="index, follow" />
+
+  <!-- Favicon -->
+  <link rel="icon" href="{{ url_for('static', filename='icons/favicon.ico') }}" type="image/x-icon" />
+
+  <!-- Open Graph / Discord / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://osuskill.com/wiki" />
+  <meta property="og:title" content="osu!Skill Wiki - Complete Documentation" />
+  <meta property="og:description" content="Complete documentation on how osu!Skill analyzes your gameplay and what all the numbers mean." />
+  <meta property="og:image" content="https://osuskill.com/static/icons/preview.png" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="osu!Skill Wiki - Complete Documentation" />
+  <meta name="twitter:description" content="Complete documentation on how osu!Skill analyzes your gameplay and what all the numbers mean." />
+  <meta name="twitter:image" content="https://osuskill.com/static/icons/preview.png" />
+
+  <!-- Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+
+  <style>
+    /* Wiki-specific styles */
+    .wiki-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 20px 60px;
+      line-height: 1.7;
+    }
+
+    .wiki-title {
+      font-size: 42px;
+      font-weight: 700;
+      color: var(--color-primary);
+      margin-bottom: 30px;
+      text-align: center;
+    }
+
+    .wiki-subtitle {
+      font-size: 18px;
+      color: var(--color-text-light);
+      text-align: center;
+      margin-bottom: 50px;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .wiki-content h2 {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--color-primary);
+      margin: 40px 0 20px 0;
+      padding-bottom: 10px;
+      border-bottom: 2px solid rgba(255, 102, 170, 0.3);
+    }
+
+    .wiki-content h3 {
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--color-text);
+      margin: 30px 0 15px 0;
+    }
+
+    .wiki-content h4 {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--color-text-light);
+      margin: 25px 0 12px 0;
+    }
+
+    .wiki-content p {
+      font-size: 16px;
+      color: var(--color-text-light);
+      margin-bottom: 16px;
+    }
+
+    .wiki-content ul,
+    .wiki-content ol {
+      margin: 16px 0 16px 20px;
+      color: var(--color-text-light);
+    }
+
+    .wiki-content li {
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+
+    .wiki-content strong {
+      color: var(--color-text);
+      font-weight: 600;
+    }
+
+    .wiki-content code {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--color-primary);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+    }
+
+    .wiki-content blockquote {
+      background: rgba(255, 102, 170, 0.05);
+      border-left: 4px solid var(--color-primary);
+      padding: 15px 20px;
+      margin: 20px 0;
+      border-radius: 0 8px 8px 0;
+    }
+
+    .wiki-content blockquote p {
+      margin: 0;
+      font-style: italic;
+    }
+
+    .metric-card {
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+
+    .metric-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--color-primary);
+      margin-bottom: 10px;
+    }
+
+    .metric-description {
+      color: var(--color-text-light);
+      margin-bottom: 8px;
+    }
+
+    .metric-range {
+      color: var(--color-text-muted);
+      font-size: 14px;
+      font-style: italic;
+    }
+
+    .verdict-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin: 20px 0;
+    }
+
+    .verdict-card {
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .verdict-name {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .verdict-accurate .verdict-name { color: #22c55e; }
+    .verdict-slightly_rusty .verdict-name { color: #fbbf24; }
+    .verdict-rusty .verdict-name { color: #f59e0b; }
+    .verdict-overranked .verdict-name { color: #ef4444; }
+    .verdict-inactive .verdict-name { color: #dc2626; }
+    .verdict-insufficient .verdict-name { color: #9ca3af; }
+
+    .verdict-range {
+      font-size: 14px;
+      color: var(--color-text-muted);
+      margin-bottom: 10px;
+    }
+
+    .verdict-description {
+      color: var(--color-text-light);
+      font-size: 15px;
+    }
+
+    .formula-box {
+      background: rgba(255, 102, 170, 0.05);
+      border: 1px solid rgba(255, 102, 170, 0.2);
+      border-radius: 8px;
+      padding: 15px;
+      margin: 15px 0;
+      text-align: center;
+    }
+
+    .formula-box code {
+      background: none;
+      color: var(--color-primary);
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .table-of-contents {
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 25px;
+      margin: 30px 0 40px 0;
+    }
+
+    .toc-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--color-primary);
+      margin-bottom: 15px;
+    }
+
+    .toc-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .toc-list li {
+      margin-bottom: 8px;
+    }
+
+    .toc-list a {
+      color: var(--color-text-light);
+      text-decoration: none;
+      transition: color 0.3s ease;
+      font-size: 15px;
+    }
+
+    .toc-list a:hover {
+      color: var(--color-primary);
+    }
+
+    .toc-list .toc-level-2 {
+      padding-left: 20px;
+    }
+
+    .toc-list .toc-level-3 {
+      padding-left: 40px;
+    }
+
+    .highlight-box {
+      background: rgba(0, 255, 127, 0.05);
+      border: 1px solid rgba(0, 255, 127, 0.2);
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+
+    .highlight-box h4 {
+      color: #00ff7f;
+      margin-top: 0;
+    }
+
+    .warning-box {
+      background: rgba(239, 68, 68, 0.05);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+
+    .warning-box h4 {
+      color: #ef4444;
+      margin-top: 0;
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+      .wiki-container {
+        padding: 20px 15px 40px;
+      }
+
+      .wiki-title {
+        font-size: 32px;
+        margin-bottom: 20px;
+      }
+
+      .wiki-subtitle {
+        font-size: 16px;
+        margin-bottom: 30px;
+      }
+
+      .wiki-content h2 {
+        font-size: 26px;
+        margin: 30px 0 15px 0;
+      }
+
+      .wiki-content h3 {
+        font-size: 20px;
+        margin: 20px 0 12px 0;
+      }
+
+      .wiki-content h4 {
+        font-size: 18px;
+        margin: 18px 0 10px 0;
+      }
+
+      .wiki-content p,
+      .wiki-content li {
+        font-size: 15px;
+      }
+
+      .verdict-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+      }
+
+      .metric-card,
+      .verdict-card {
+        padding: 15px;
+      }
+
+      .table-of-contents {
+        padding: 20px;
+        margin: 20px 0 30px 0;
+      }
+
+      .toc-list .toc-level-2 {
+        padding-left: 15px;
+      }
+
+      .toc-list .toc-level-3 {
+        padding-left: 30px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .wiki-container {
+        padding: 15px 10px 30px;
+      }
+
+      .wiki-title {
+        font-size: 28px;
+      }
+
+      .wiki-content h2 {
+        font-size: 22px;
+      }
+
+      .wiki-content h3 {
+        font-size: 18px;
+      }
+
+      .wiki-content h4 {
+        font-size: 16px;
+      }
+
+      .wiki-content p,
+      .wiki-content li {
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <nav>
+        <a href="/" class="logo">osu!Skill</a>
+        <ul class="nav-links">
+          <li class="nav-item"><a href="/wiki">Wiki</a></li>
+          <li class="nav-item">
+            <a href="https://ko-fi.com/snovn" target="_blank" rel="noopener noreferrer">Donate</a>
+          </li>
+          <li class="nav-item"><a href="/leaderboard">Leaderboard</a></li>
+          <li class="user-area">
+            <a href="{{ '/dashboard' if username else '/login' }}" class="user-card">
+              <img
+                src="{{ user_avatar or 'https://a.ppy.sh/14752899?1628953484.png' }}"
+                alt="User Avatar"
+                class="user-avatar"
+              />
+              <span class="username">{{ username or 'Guest' }}</span>
+            </a>
+            {% if username %}
+              <a href="{{ url_for('auth.logout') }}" class="logout-link">Logout</a>
+            {% endif %}
+          </li>
+        </ul>
+        <div class="nav-mobile">
+          <div class="user-area-mobile">
+            <a href="{{ '/dashboard' if username else '/login' }}" class="user-card">
+              <img
+                src="{{ user_avatar or 'https://a.ppy.sh/14752899?1628953484.png' }}"
+                alt="User Avatar"
+                class="user-avatar"
+              />
+              <span class="username">{{ username or 'Guest' }}</span>
+            </a>
+            {% if username %}
+              <a href="{{ url_for('auth.logout') }}" class="logout-link">Logout</a>
+            {% endif %}
+          </div>
+          <div class="hamburger" onclick="toggleMobileMenu()">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+      </nav>
+      <div class="mobile-menu" id="mobileMenu">
+        <ul>
+          <li><a href="/wiki">Wiki</a></li>
+          <li><a href="https://ko-fi.com/snovn" target="_blank" rel="noopener noreferrer">Donate</a></li>
+          <li><a href="/leaderboard">Leaderboard</a></li>
+        </ul>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="wiki-container">
+      <h1 class="wiki-title">osu!Skill Wiki</h1>
+      <p class="wiki-subtitle">Complete documentation on how osu!Skill analyzes your gameplay and what all the numbers mean.</p>
+
+      <div class="table-of-contents">
+        <h3 class="toc-title">Table of Contents</h3>
+        <ul class="toc-list">
+          <li><a href="#overview">Overview</a></li>
+          <li class="toc-level-2"><a href="#what-is-osuskill">What is osu!Skill?</a></li>
+          <li class="toc-level-2"><a href="#quick-start">Quick Start Guide</a></li>
+          <li><a href="#core-metrics">Core Metrics</a></li>
+          <li><a href="#verdicts">Verdicts Explained</a></li>
+          <li><a href="#calculations">Calculations</a></li>
+          <li class="toc-level-2"><a href="#skill-components">Skill Components</a></li>
+          <li class="toc-level-2"><a href="#mod-multipliers">Mod Multipliers</a></li>
+          <li class="toc-level-2"><a href="#temporal-decay">Temporal Decay</a></li>
+          <li><a href="#advanced-features">Advanced Features</a></li>
+          <li class="toc-level-2"><a href="#confidence-system">Confidence System</a></li>
+          <li class="toc-level-2"><a href="#data-requirements">Data Requirements</a></li>
+          <li><a href="#limitations">Limitations</a></li>
+        </ul>
+      </div>
+
+      <div class="wiki-content">
+        <h2 id="overview">Overview</h2>
+
+        <h3 id="what-is-osuskill">What is osu!Skill?</h3>
+        <p>osu!Skill is a comprehensive skill analysis system that goes beyond the traditional PP (Performance Points) system. It analyzes your recent gameplay against your peak performance to determine your current skill level and consistency.</p>
+        
+        <blockquote>
+          <p><strong>Key Philosophy:</strong> Your skill is measured by how well you're currently performing compared to your peak ability, not just your highest PP scores.</p>
+        </blockquote>
+
+        <p>The system uses three main components: <strong>Recent Skill</strong> (your current performance), <strong>Peak Skill</strong> (your best historical performance), and <strong>Skill Match</strong> (how close you are to your peak).</p>
+
+        <h3 id="quick-start">Quick Start Guide</h3>
+        <ol>
+          <li><strong>Check Your Profile</strong> - Log in with your osu! account to see your current skill analysis.</li>
+          <li><strong>Understand Your Verdict</strong> - Your verdict tells you how well you're performing compared to your peak.</li>
+          <li><strong>Review Insights</strong> - Get personalized recommendations based on your play patterns.</li>
+        </ol>
+
+        <h2 id="core-metrics">Core Metrics</h2>
+
+        <div class="metric-card">
+          <div class="metric-title">Recent Skill</div>
+          <div class="metric-description">Measures your current skill level based on your recent plays (up to 30, only from the last 24 hours). This considers accuracy, star rating, mods, and temporal decay to emphasize newer plays.</div>
+          <div class="metric-range"><strong>Range:</strong> 0-200+ (higher is better)</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-title">Peak Skill</div>
+          <div class="metric-description">Measures your historical peak performance based on your top 25 plays by PP. This represents what you're capable of at your best.</div>
+          <div class="metric-range"><strong>Range:</strong> 0-200+ (higher is better)</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-title">Skill Match</div>
+          <div class="metric-description">The percentage of your peak skill that you're currently maintaining. This is the primary indicator of your current form.</div>
+          <div class="formula-box">
+            <code>(Recent Skill / Peak Skill) × 100 × Reliability Factor</code>
+          </div>
+          <div class="metric-range"><strong>Range:</strong> 0-100% (higher means closer to peak)</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-title">Confidence</div>
+          <div class="metric-description">Indicates how reliable the analysis is based on data quality, play volume, diversity, and consistency.</div>
+          <div class="metric-range"><strong>Range:</strong> 0-100% (50%+ recommended)</div>
+        </div>
+
+        <h2 id="verdicts">Verdicts Explained</h2>
+
+        <div class="verdict-grid">
+          <div class="verdict-card verdict-accurate">
+            <div class="verdict-name">Accurate</div>
+            <div class="verdict-range">(92%+)</div>
+            <div class="verdict-description">You're performing at or very close to your peak skill level. Your current rank accurately reflects your ability.</div>
+          </div>
+
+          <div class="verdict-card verdict-slightly_rusty">
+            <div class="verdict-name">Slightly Rusty</div>
+            <div class="verdict-range">(75-91%)</div>
+            <div class="verdict-description">You're performing slightly below your peak but still maintaining good form. Minor practice should restore peak performance.</div>
+          </div>
+
+          <div class="verdict-card verdict-rusty">
+            <div class="verdict-name">Rusty</div>
+            <div class="verdict-range">(55-74%)</div>
+            <div class="verdict-description">Noticeable decline from peak performance. You may need more practice to return to your best form.</div>
+          </div>
+
+          <div class="verdict-card verdict-overranked">
+            <div class="verdict-name">Overranked</div>
+            <div class="verdict-range">(35-54%)</div>
+            <div class="verdict-description">Significant gap between current and peak performance. Your rank may be inflated compared to current skill.</div>
+          </div>
+
+          <div class="verdict-card verdict-inactive">
+            <div class="verdict-name">Inactive</div>
+            <div class="verdict-range">(<35%)</div>
+            <div class="verdict-description">Very low recent activity or performance well below peak. Extended practice needed to restore skill.</div>
+          </div>
+
+          <div class="verdict-card verdict-insufficient">
+            <div class="verdict-name">Insufficient Data</div>
+            <div class="verdict-range">N/A</div>
+            <div class="verdict-description">Not enough recent plays or confidence too low for reliable analysis. Play more to get accurate results.</div>
+          </div>
+        </div>
+
+        <h2 id="calculations">Calculations</h2>
+
+        <h3 id="skill-components">Skill Components</h3>
+        <p>Each play is broken down into three skill components:</p>
+        <ul>
+          <li><strong>Aim Skill (45% weight):</strong> Based on star rating, AR (Approach Rate), and accuracy. Higher star ratings and AR values increase aim skill.</li>
+          <li><strong>Speed Skill (35% weight):</strong> Based on BPM and star rating. Faster maps and higher star ratings increase speed skill.</li>
+          <li><strong>Accuracy Skill (20% weight):</strong> Rewards precision, especially on harder maps. Accuracy above 90% is heavily weighted.</li>
+        </ul>
+
+        <h3 id="mod-multipliers">Mod Multipliers</h3>
+        <p>Different mods affect skill calculations:</p>
+        
+        <h4>Single Mods:</h4>
+        <ul>
+          <li>HD: 1.06x</li>
+          <li>HR: 1.12x</li>
+          <li>DT/NC: 1.18x</li>
+          <li>EZ: 0.88x</li>
+          <li>HT: 0.82x</li>
+          <li>FL: 1.15x</li>
+        </ul>
+
+        <h4>Combinations (override single mods):</h4>
+        <ul>
+          <li>DTHRHD: 1.35x</li>
+          <li>DTHR: 1.28x</li>
+          <li>DTHD: 1.24x</li>
+          <li>HRHD: 1.18x</li>
+        </ul>
+
+        <h3 id="temporal-decay">Temporal Decay</h3>
+        <p>Older plays are weighted less to emphasize recent performance:</p>
+        <ul>
+          <li>≤14 days: 1.0x</li>
+          <li>15-30 days: 0.95x</li>
+          <li>31-60 days: 0.85x</li>
+          <li>61-90 days: 0.75x</li>
+          <li>91-180 days: 0.6x</li>
+          <li>>180 days: exponential decay</li>
+        </ul>
+
+        <h2 id="advanced-features">Advanced Features</h2>
+
+        <h3 id="confidence-system">Confidence System</h3>
+        <p>Confidence indicates how reliable the analysis is. It's calculated from four factors:</p>
+
+        <h4>Volume (35%)</h4>
+        <p>Based on number of recent plays. More plays provide more data points for analysis.</p>
+        <div class="highlight-box">
+          <h4>Best results: 25+ plays</h4>
+        </div>
+
+        <h4>Diversity (25%)</h4>
+        <p>Based on unique beatmaps played. Playing different maps prevents over-specialization.</p>
+        <div class="highlight-box">
+          <h4>Best results: 15+ unique maps</h4>
+        </div>
+
+        <h4>Recency (25%)</h4>
+        <p>Based on how spread out your plays are across different calendar weeks.</p>
+        <div class="highlight-box">
+          <h4>Best results: 6+ different weeks</h4>
+        </div>
+
+        <h4>Consistency (15%)</h4>
+        <p>Based on accuracy standard deviation. More consistent accuracy indicates stable skill.</p>
+        <div class="highlight-box">
+          <h4>Best results: <5% accuracy deviation</h4>
+        </div>
+
+        <div class="formula-box">
+          <strong>Confidence Formula:</strong><br>
+          <code>(Volume × 0.35) + (Diversity × 0.25) + (Recency × 0.25) + (Consistency × 0.15)</code>
+        </div>
+
+        <h3 id="data-requirements">Data Requirements</h3>
+
+        <h4>Minimum Data</h4>
+        <ul>
+          <li><strong>Recent Plays:</strong> 6 minimum, 30 maximum (used plays from the last 24 hours)</li>
+          <li><strong>Top Plays:</strong> 8 minimum, 25 maximum used</li>
+          <li><strong>Confidence Threshold:</strong> 20% minimum for basic analysis</li>
+        </ul>
+
+        <h4>Data Validation</h4>
+        <p>Each play must have valid:</p>
+        <ul>
+          <li>Accuracy (0-100%)</li>
+          <li>Star rating (0-12*)</li>
+          <li>AR (0-11)</li>
+          <li>BPM (30-600)</li>
+          <li>Timestamp</li>
+        </ul>
+
+        <h2 id="limitations">Limitations</h2>
+
+        <div class="warning-box">
+          <h4>Important: osu!Skill is a supplementary tool, not a replacement for official rankings.</h4>
+        </div>
+
+        <h3>System Limitations</h3>
+        <ul>
+          <li><strong>Data Dependency:</strong> Requires sufficient recent play data for accurate analysis</li>
+          <li><strong>Skill Aspects:</strong> May not capture all skill nuances (reading, flow, etc.)</li>
+          <li><strong>Mod Complexity:</strong> Simplified mod multipliers may not reflect true difficulty</li>
+          <li><strong>Map Variety:</strong> Analysis quality depends on map diversity</li>
+        </ul>
+
+        <h3>Best Practices</h3>
+        <ul>
+          <li>Play regularly for accurate analysis</li>
+          <li>Play diverse maps and difficulties</li>
+          <li>Focus on improvement, not just the numbers</li>
+          <li>Use insights to identify improvement areas</li>
+          <li>Aim for 50%+ confidence for reliable results</li>
+        </ul>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container footer-container">
+      <p class="footer-left">&copy; 2025 osu!Skill. Built for the osu! community with ❤️</p>
+      <div class="footer-right">
+        <a href="https://discord.com/users/380719896624889856" target="_blank" rel="noopener" aria-label="Discord">
+          <img src="{{ url_for('static', filename='icons/discord.svg') }}" alt="Discord" class="footer-icon" />
+        </a>
+        <a href="https://www.youtube.com/@snovynosu" target="_blank" rel="noopener" aria-label="YouTube">
+          <img src="{{ url_for('static', filename='icons/youtube.svg') }}" alt="YouTube" class="footer-icon" />
+        </a>
+        <a href="https://github.com/snovn/osu-skill" target="_blank" rel="noopener" aria-label="GitHub">
+          <img src="{{ url_for('static', filename='icons/github.svg') }}" alt="GitHub" class="footer-icon" />
+        </a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    function toggleMobileMenu() {
+      const mobileMenu = document.getElementById('mobileMenu');
+      mobileMenu.classList.toggle('active');
+    }
+
+    // Smooth scrolling for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+        }
+      });
+    });
+  </script>
+</body>
+</html>
