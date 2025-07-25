@@ -440,9 +440,11 @@
           <li class="toc-level-2"><a href="#skill-components">Skill Components</a></li>
           <li class="toc-level-2"><a href="#mod-multipliers">Mod Multipliers</a></li>
           <li class="toc-level-2"><a href="#temporal-decay">Temporal Decay</a></li>
+          <li class="toc-level-2"><a href="#retry-detection">Retry Detection</a></li>
           <li><a href="#advanced-features">Advanced Features</a></li>
           <li class="toc-level-2"><a href="#confidence-system">Confidence System</a></li>
           <li class="toc-level-2"><a href="#data-requirements">Data Requirements</a></li>
+          <li class="toc-level-2"><a href="#insights-system">Insights System</a></li>
           <li><a href="#limitations">Limitations</a></li>
         </ul>
       </div>
@@ -470,7 +472,7 @@
 
         <div class="metric-card">
           <div class="metric-title">Recent Skill</div>
-          <div class="metric-description">Measures your current skill level based on your recent plays (up to 30, only from the last 24 hours). This considers accuracy, star rating, mods, and temporal decay to emphasize newer plays.</div>
+          <div class="metric-description">Measures your current skill level based on your recent plays (up to 30 plays, prioritizing newest). This considers accuracy, star rating, mods, temporal decay, and retry patterns to emphasize genuine performance.</div>
           <div class="metric-range"><strong>Range:</strong> 0-200+ (higher is better)</div>
         </div>
 
@@ -492,7 +494,7 @@
         <div class="metric-card">
           <div class="metric-title">Confidence</div>
           <div class="metric-description">Indicates how reliable the analysis is based on data quality, play volume, diversity, and consistency.</div>
-          <div class="metric-range"><strong>Range:</strong> 0-100% (50%+ recommended)</div>
+          <div class="metric-range"><strong>Range:</strong> 0-100% (20%+ minimum for analysis)</div>
         </div>
 
         <h2 id="verdicts">Verdicts Explained</h2>
@@ -500,31 +502,31 @@
         <div class="verdict-grid">
           <div class="verdict-card verdict-accurate">
             <div class="verdict-name">Accurate</div>
-            <div class="verdict-range">(92%+)</div>
+            <div class="verdict-range">(88%+)</div>
             <div class="verdict-description">You're performing at or very close to your peak skill level. Your current rank accurately reflects your ability.</div>
           </div>
 
           <div class="verdict-card verdict-slightly_rusty">
             <div class="verdict-name">Slightly Rusty</div>
-            <div class="verdict-range">(75-91%)</div>
+            <div class="verdict-range">(78-87%)</div>
             <div class="verdict-description">You're performing slightly below your peak but still maintaining good form. Minor practice should restore peak performance.</div>
           </div>
 
           <div class="verdict-card verdict-rusty">
             <div class="verdict-name">Rusty</div>
-            <div class="verdict-range">(55-74%)</div>
+            <div class="verdict-range">(60-77%)</div>
             <div class="verdict-description">Noticeable decline from peak performance. You may need more practice to return to your best form.</div>
           </div>
 
           <div class="verdict-card verdict-overranked">
             <div class="verdict-name">Overranked</div>
-            <div class="verdict-range">(35-54%)</div>
+            <div class="verdict-range">(40-59%)</div>
             <div class="verdict-description">Significant gap between current and peak performance. Your rank may be inflated compared to current skill.</div>
           </div>
 
           <div class="verdict-card verdict-inactive">
             <div class="verdict-name">Inactive</div>
-            <div class="verdict-range">(<35%)</div>
+            <div class="verdict-range">(<40%)</div>
             <div class="verdict-description">Very low recent activity or performance well below peak. Extended practice needed to restore skill.</div>
           </div>
 
@@ -538,96 +540,150 @@
         <h2 id="calculations">Calculations</h2>
 
         <h3 id="skill-components">Skill Components</h3>
-        <p>Each play is broken down into three skill components:</p>
+        <p>Each play is broken down into three skill components with improved accuracy scaling:</p>
         <ul>
-          <li><strong>Aim Skill (45% weight):</strong> Based on star rating, AR (Approach Rate), and accuracy. Higher star ratings and AR values increase aim skill.</li>
-          <li><strong>Speed Skill (35% weight):</strong> Based on BPM and star rating. Faster maps and higher star ratings increase speed skill.</li>
-          <li><strong>Accuracy Skill (20% weight):</strong> Rewards precision, especially on harder maps. Accuracy above 90% is heavily weighted.</li>
+          <li><strong>Aim Skill (40% weight):</strong> Based on star rating, AR (Approach Rate), and accuracy. Uses conservative difficulty scaling and AR adjustments.</li>
+          <li><strong>Speed Skill (40% weight):</strong> Based on BPM relative to 180 BPM baseline and star rating. Speed-focused maps are weighted appropriately.</li>
+          <li><strong>Accuracy Skill (20% weight):</strong> Heavily rewards high accuracy (95%+) with exponential scaling. Fixed calculation ensures proper accuracy rewards.</li>
+        </ul>
+
+        <h4>Accuracy Scaling</h4>
+        <p>The system uses tiered accuracy scaling for more realistic skill representation:</p>
+        <ul>
+          <li><strong>99%+:</strong> 0.99 + (accuracy - 99) × 0.01</li>
+          <li><strong>96-99%:</strong> 0.96 + (accuracy - 96) × 0.01</li>
+          <li><strong>90-96%:</strong> 0.90 + (accuracy - 90) × 0.01</li>
+          <li><strong>80-90%:</strong> 0.80 + (accuracy - 80) × 0.01</li>
+          <li><strong><80%:</strong> Linear scaling × 0.8</li>
         </ul>
 
         <h3 id="mod-multipliers">Mod Multipliers</h3>
-        <p>Different mods affect skill calculations:</p>
+        <p>Mod multipliers have been refined with proper combination bonuses:</p>
         
         <h4>Single Mods:</h4>
         <ul>
-          <li>HD: 1.06x</li>
-          <li>HR: 1.12x</li>
-          <li>DT/NC: 1.18x</li>
-          <li>EZ: 0.88x</li>
-          <li>HT: 0.82x</li>
-          <li>FL: 1.15x</li>
+          <li><strong>HD:</strong> 1.06x</li>
+          <li><strong>HR:</strong> 1.12x</li>
+          <li><strong>DT/NC:</strong> 1.18x</li>
+          <li><strong>FL:</strong> 1.15x</li>
+          <li><strong>EZ:</strong> 0.88x</li>
+          <li><strong>HT:</strong> 0.82x</li>
+          <li><strong>SO:</strong> 0.92x</li>
+          <li><strong>NF:</strong> 0.98x</li>
         </ul>
 
-        <h4>Combinations (override single mods):</h4>
+        <h4>Mod Combinations (override individual mods):</h4>
         <ul>
-          <li>DTHRHD: 1.35x</li>
-          <li>DTHR: 1.28x</li>
-          <li>DTHD: 1.24x</li>
-          <li>HRHD: 1.18x</li>
+          <li><strong>DT+HR+HD:</strong> 1.32x</li>
+          <li><strong>DT+HR:</strong> 1.25x</li>
+          <li><strong>DT+HD:</strong> 1.22x</li>
+          <li><strong>HR+HD:</strong> 1.16x</li>
         </ul>
+
+        <div class="warning-box">
+          <h4>Multiplier Range</h4>
+          <p>All mod multipliers are capped between 0.6x and 2.2x to prevent extreme values.</p>
+        </div>
 
         <h3 id="temporal-decay">Temporal Decay</h3>
-        <p>Older plays are weighted less to emphasize recent performance:</p>
+        <p>Temporal decay has been made more gradual to better reflect skill retention:</p>
         <ul>
-          <li>≤14 days: 1.0x</li>
-          <li>15-30 days: 0.95x</li>
-          <li>31-60 days: 0.85x</li>
-          <li>61-90 days: 0.75x</li>
-          <li>91-180 days: 0.6x</li>
-          <li>>180 days: exponential decay</li>
+          <li><strong>≤7 days:</strong> 1.0x (full weight)</li>
+          <li><strong>8-14 days:</strong> 0.98x</li>
+          <li><strong>15-30 days:</strong> 0.93x</li>
+          <li><strong>31-60 days:</strong> 0.85x</li>
+          <li><strong>61-90 days:</strong> 0.75x</li>
+          <li><strong>91-180 days:</strong> 0.6x</li>
+          <li><strong>>180 days:</strong> Exponential decay with minimum 0.35x</li>
+        </ul>
+
+        <h3 id="retry-detection">Retry Detection</h3>
+        <p>The system intelligently detects retry attempts to provide fair analysis:</p>
+        <ul>
+          <li><strong>Detection Window:</strong> 30 minutes between plays on the same map</li>
+          <li><strong>Retry Penalty:</strong> 0.9x weight (reduced from previous harsh penalties)</li>
+          <li><strong>Search Range:</strong> Checks up to 8 previous plays for retries</li>
         </ul>
 
         <h2 id="advanced-features">Advanced Features</h2>
 
         <h3 id="confidence-system">Confidence System</h3>
-        <p>Confidence indicates how reliable the analysis is. It's calculated from four factors:</p>
+        <p>The confidence system has been refined for more accurate reliability assessment:</p>
 
         <h4>Volume (35%)</h4>
-        <p>Based on number of recent plays. More plays provide more data points for analysis.</p>
-        <div class="highlight-box">
-          <h4>Best results: 25+ plays</h4>
-        </div>
+        <p>Based on number of recent plays with more generous scaling:</p>
+        <ul>
+          <li><strong>25+ plays:</strong> 1.0</li>
+          <li><strong>15-24 plays:</strong> 0.95 + scaling</li>
+          <li><strong>10-14 plays:</strong> 0.88 + scaling</li>
+          <li><strong>6-9 plays:</strong> 0.75 + scaling</li>
+          <li><strong><6 plays:</strong> Minimum 0.6</li>
+        </ul>
 
         <h4>Diversity (25%)</h4>
-        <p>Based on unique beatmaps played. Playing different maps prevents over-specialization.</p>
-        <div class="highlight-box">
-          <h4>Best results: 15+ unique maps</h4>
-        </div>
+        <p>Based on unique beatmaps played:</p>
+        <ul>
+          <li><strong>15+ unique maps:</strong> 1.0</li>
+          <li><strong>10-14 maps:</strong> 0.8 + scaling</li>
+          <li><strong>6-9 maps:</strong> 0.6 + scaling</li>
+          <li><strong><6 maps:</strong> Minimum 0.4</li>
+        </ul>
 
         <h4>Recency (25%)</h4>
-        <p>Based on how spread out your plays are across different calendar weeks.</p>
-        <div class="highlight-box">
-          <h4>Best results: 6+ different weeks</h4>
-        </div>
+        <p>Based on calendar weeks with recent activity:</p>
+        <ul>
+          <li><strong>6+ weeks:</strong> 1.0</li>
+          <li><strong>4-5 weeks:</strong> 0.8 + scaling</li>
+          <li><strong>2-3 weeks:</strong> 0.6 + scaling</li>
+          <li><strong><2 weeks:</strong> Minimum 0.4</li>
+        </ul>
 
         <h4>Consistency (15%)</h4>
-        <p>Based on accuracy standard deviation. More consistent accuracy indicates stable skill.</p>
-        <div class="highlight-box">
-          <h4>Best results: <5% accuracy deviation</h4>
-        </div>
-
+        <p>Based on accuracy standard deviation with less harsh penalties:</p>
         <div class="formula-box">
-          <strong>Confidence Formula:</strong><br>
-          <code>(Volume × 0.35) + (Diversity × 0.25) + (Recency × 0.25) + (Consistency × 0.15)</code>
+          <code>max(0.3, 1 - (accuracy_std / 30))</code>
         </div>
 
         <h3 id="data-requirements">Data Requirements</h3>
 
-        <h4>Minimum Data</h4>
+        <h4>Minimum Requirements</h4>
         <ul>
-          <li><strong>Recent Plays:</strong> 6 minimum, 30 maximum (used plays from the last 24 hours)</li>
-          <li><strong>Top Plays:</strong> 8 minimum, 25 maximum used</li>
-          <li><strong>Confidence Threshold:</strong> 20% minimum for basic analysis</li>
+          <li><strong>Recent Plays:</strong> 6 minimum for analysis</li>
+          <li><strong>Top Plays:</strong> 8 minimum for peak skill calculation</li>
+          <li><strong>Confidence Threshold:</strong> 20% minimum (down from 50%)</li>
+        </ul>
+
+        <h4>Special Cases</h4>
+        <ul>
+          <li><strong>Inactive Users:</strong> No recent plays but sufficient top plays → "inactive" verdict</li>
+          <li><strong>Low Confidence Override:</strong> 15%+ confidence with 50%+ skill match still allows analysis</li>
         </ul>
 
         <h4>Data Validation</h4>
         <p>Each play must have valid:</p>
         <ul>
-          <li>Accuracy (0-100%)</li>
-          <li>Star rating (0-12*)</li>
-          <li>AR (0-11)</li>
-          <li>BPM (30-600)</li>
-          <li>Timestamp</li>
+          <li><strong>Accuracy:</strong> 0-100%</li>
+          <li><strong>Star rating:</strong> 0-12*</li>
+          <li><strong>AR:</strong> 0-11</li>
+          <li><strong>BPM:</strong> 30-600</li>
+          <li><strong>Timestamp:</strong> Valid ISO format</li>
+        </ul>
+
+        <h3 id="insights-system">Insights System</h3>
+        <p>The system generates personalized insights based on your play patterns:</p>
+
+        <h4>Performance Insights</h4>
+        <ul>
+          <li><strong>Old Top Plays:</strong> Detects when most top plays are >9 months old</li>
+          <li><strong>Difficulty Analysis:</strong> Compares recent vs. peak difficulty levels</li>
+          <li><strong>Consistency Evaluation:</strong> Analyzes accuracy consistency with contextual feedback</li>
+        </ul>
+
+        <h4>Behavioral Insights</h4>
+        <ul>
+          <li><strong>Retry Patterns:</strong> Analyzes retry frequency (>40% = high, <15% = low)</li>
+          <li><strong>Mod Variety:</strong> Evaluates mod usage diversity</li>
+          <li><strong>Map Exploration:</strong> Encourages playing different maps</li>
         </ul>
 
         <h2 id="limitations">Limitations</h2>
