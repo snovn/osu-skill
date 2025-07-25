@@ -281,7 +281,8 @@ class SkillAnalyzer:
             temporal_weight = self.calculate_temporal_weight(play.get('created_at', ''))
             
             position_weight = 0.97 ** i
-            retry_penalty = 0.75 if play.get('is_retry', False) else 1.0
+            # Change from 0.75 to 0.85 - still penalizes but not as harshly
+            retry_penalty = 0.85 if play.get('is_retry', False) else 1.0
             
             final_weight = temporal_weight * position_weight * retry_penalty
             total_weighted_score += skill_score * final_weight
@@ -451,16 +452,16 @@ class SkillAnalyzer:
         # Verdict based on skill match
         skill_match = round(skill_match, 1)
 
-        if skill_match >= 92:
+        if skill_match >= 90:  # was 92, only 2 point change
             return 'accurate'
-        elif skill_match >= 75:
+        elif skill_match >= 80:  # was 75, only 5 point change  
             return 'slightly_rusty'
-        elif skill_match >= 55:
+        elif skill_match >= 60:  # was 55, only 5 point change
             return 'rusty'
-        elif skill_match >= 35:
+        elif skill_match >= 40:  # was 35, only 5 point change
             return 'overranked'
         else:
-            return 'very_rusty'  # Changed from 'inactive' to avoid confusion
+            return 'inactive'
 
     def generate_insights(self, valid_recent_plays: List[Dict], valid_top_plays: List[Dict]) -> List[str]:
         """Generate insights about the player's performance - using consistent data"""
@@ -484,14 +485,14 @@ class SkillAnalyzer:
 
         # --- Insight 2: Star rating gap ---
         if len(valid_top_plays) >= 5 and len(valid_recent_plays) >= 5:
-            avg_top_sr = sum(p.get('beatmap_full', {}).get('difficulty_rating', 0) for p in valid_top_plays[:10]) / 10
+            avg_top_sr = sum(p.get('beatmap_full', {}).get('difficulty_rating', 0) for p in valid_top_plays[:5]) / 5
             avg_recent_sr = sum(p.get('beatmap_full', {}).get('difficulty_rating', 0) for p in valid_recent_plays[:10]) / 10
 
-            if avg_recent_sr < avg_top_sr * self.THRESHOLDS['star_rating_gap_low']:
-                insights.append("Recent plays are significantly easier than your peak performance")
+            if avg_recent_sr < avg_top_sr * 0.8:
+                insights.append("Playing well below your peak difficulty - consider more challenging maps for improvement")
             elif avg_recent_sr > avg_top_sr * self.THRESHOLDS['star_rating_gap_high']:
                 insights.append("You're attempting harder maps than your current top plays")
-
+                
         # --- Insight 3: Accuracy consistency ---
         if len(valid_recent_plays) > 6:
             accuracies = [p.get('accuracy', 0) * 100 for p in valid_recent_plays]
@@ -518,9 +519,9 @@ class SkillAnalyzer:
         retry_rate = retry_count / len(plays_with_retries) if plays_with_retries else 0
 
         if retry_rate > self.THRESHOLDS['high_retry_rate']:
-            insights.append("High retry rate detected - consider focusing on first-try consistency")
+            insights.append("High retry rate - shows dedication to peak performance")
         elif retry_rate < self.THRESHOLDS['low_retry_rate']:
-            insights.append("Good play selection - low retry rate shows consistency")
+            insights.append("Low retry rate - good for building consistency")
 
         # --- Insight 5: Mod variety ---
         mod_usage = {}
@@ -534,17 +535,22 @@ class SkillAnalyzer:
         elif len(mod_usage) > self.THRESHOLDS['max_mod_variety']:
             insights.append("Good mod variety - you're developing well-rounded skills")
 
-        # --- Insight 6: SR consistency vs variety ---
-        sr_values = [p.get('beatmap_full', {}).get('difficulty_rating', 0) for p in valid_recent_plays]
-        if len(sr_values) >= 6:
-            try:
-                sr_std = statistics.stdev(sr_values)
-                if sr_std < self.THRESHOLDS['sr_consistency_low']:
-                    insights.append("You're focusing on a narrow difficulty range — try mixing up challenge levels")
-                elif sr_std > self.THRESHOLDS['sr_consistency_high']:
-                    insights.append("Great variety in map difficulty — good for balanced improvement")
-            except statistics.StatisticsError:
-                pass
+        # # --- Insight 6: SR consistency vs variety ---
+        # if len(valid_top_plays) >= 5 and len(valid_recent_plays) >= 6:
+        #     try:
+        #         top_avg_sr = statistics.mean([p.get('beatmap_full', {}).get('difficulty_rating', 0) for p in valid_top_plays[:5]])
+        #         sr_values = [p.get('beatmap_full', {}).get('difficulty_rating', 0) for p in valid_recent_plays]
+        #         recent_avg_sr = statistics.mean(sr_values)
+        #         sr_std = statistics.stdev(sr_values)
+                
+        #         if recent_avg_sr < top_avg_sr * 0.8:
+        #             insights.append("Playing well below your peak difficulty - consider more challenging maps for improvement")
+        #         elif sr_std > self.THRESHOLDS['sr_consistency_high'] and recent_avg_sr >= top_avg_sr * 0.9:
+        #             insights.append("Good variety in challenging difficulty levels")
+        #         elif sr_std < self.THRESHOLDS['sr_consistency_low']:
+        #             insights.append("You're focusing on a narrow difficulty range — try mixing up challenge levels")
+        #     except statistics.StatisticsError:
+        #         pass
 
         # --- Insight 7: High accuracy on easy maps ---
         if len(valid_recent_plays) >= 5:
