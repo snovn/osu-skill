@@ -519,17 +519,17 @@ class SkillAnalyzer:
             insights.append("Good mod variety - you're developing well-rounded skills")
 
         # --- Insight 6: Speed vs Aim bias ---
-        if len(valid_recent_plays) >= 5:
-            aim_skills = [self.calculate_skill_components(p)[0] for p in valid_recent_plays[:10]]
-            speed_skills = [self.calculate_skill_components(p)[1] for p in valid_recent_plays[:10]]
-            if aim_skills and speed_skills:
-                avg_aim = sum(aim_skills) / len(aim_skills)
-                avg_speed = sum(speed_skills) / len(speed_skills)
-                ratio = avg_speed / avg_aim if avg_aim else 0
-                if ratio > 1.2:
-                    insights.append("Stronger on speed maps — aim maps needs work.")
-                elif ratio < 0.8:
-                    insights.append("Stronger on aim maps — try training speed.")
+        # if len(valid_recent_plays) >= 5:
+        #     aim_skills = [self.calculate_skill_components(p)[0] for p in valid_recent_plays[:10]]
+        #     speed_skills = [self.calculate_skill_components(p)[1] for p in valid_recent_plays[:10]]
+        #     if aim_skills and speed_skills:
+        #         avg_aim = sum(aim_skills) / len(aim_skills)
+        #         avg_speed = sum(speed_skills) / len(speed_skills)
+        #         ratio = avg_speed / avg_aim if avg_aim else 0
+        #         if ratio > 1.2:
+        #             insights.append("Stronger on speed maps — aim maps needs work.")
+        #         elif ratio < 0.8:
+        #             insights.append("Stronger on aim maps — try training speed.")
 
 
         # --- Insight 7: SR consistency vs variety ---
