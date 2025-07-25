@@ -20,10 +20,29 @@ class SkillAnalyzer:
             'HT': 0.82
         }
         
-        # More reasonable minimum data requirements
-        self.min_recent_plays = 6   # Reduced from 8
-        self.min_top_plays = 8      # Reduced from 12
-        self.min_confidence_threshold = 20  # Reduced from 25
+        # Minimum data requirements
+        self.min_recent_plays = 6
+        self.min_top_plays = 8
+        self.min_confidence_threshold = 20
+        
+        # Insight thresholds - now configurable
+        self.THRESHOLDS = {
+            'old_top_plays_months': 9,
+            'old_top_plays_ratio': 0.7,  # 7 out of 10
+            'star_rating_gap_low': 0.7,
+            'star_rating_gap_high': 1.15,
+            'accuracy_consistency_threshold': 5.0,
+            'high_retry_rate': 0.4,
+            'low_retry_rate': 0.15,
+            'max_mod_variety': 4,
+            'sr_consistency_low': 0.3,
+            'sr_consistency_high': 1.0,
+            'easy_map_threshold': 3.5,
+            'high_accuracy_threshold': 0.96,
+            'easy_high_acc_min_count': 5,
+            'normal_bpm': 180,  # Updated for modern osu!
+            'max_bpm_multiplier': 2.5
+        }
 
     def validate_play_data(self, play: Dict) -> bool:
         """Validate that a play has the required data for analysis"""
@@ -69,7 +88,7 @@ class SkillAnalyzer:
         return [play for play in plays if self.validate_play_data(play)]
 
     def calculate_skill_components(self, play: Dict) -> Tuple[float, float, float]:
-        """Calculate aim, speed, and accuracy skill components - improved balance"""
+        """Calculate aim, speed, and accuracy skill components"""
         beatmap = play.get('beatmap_full', {})
         accuracy = play.get('accuracy', 0) * 100
         star_rating = beatmap.get('difficulty_rating', 0)
@@ -77,38 +96,37 @@ class SkillAnalyzer:
         bpm = beatmap.get('bpm', 120)
         passed = play.get('passed', True)
         
-        # Improved accuracy scaling - more rewarding for high accuracy
+        # Improved accuracy scaling
         if accuracy >= 98:
-            acc_factor = 0.98 + (accuracy - 98) * 0.02  # 0.98 to 1.0 for 98-100%
+            acc_factor = 0.98 + (accuracy - 98) * 0.02
         elif accuracy >= 95:
-            acc_factor = 0.95 + (accuracy - 95) * 0.01  # 0.95 to 0.98 for 95-98%
+            acc_factor = 0.95 + (accuracy - 95) * 0.01
         elif accuracy >= 90:
-            acc_factor = 0.90 + (accuracy - 90) * 0.01  # 0.90 to 0.95 for 90-95%
+            acc_factor = 0.90 + (accuracy - 90) * 0.01
         else:
             acc_factor = accuracy / 100
         
         # Reasonable penalty for failed plays
         fail_penalty = 0.85 if not passed else 1.0
 
-        # Improved difficulty scaling - more realistic progression
+        # Difficulty scaling
         if star_rating <= 2.0:
-            difficulty_scale = 0.8 + (star_rating / 2.0) * 0.2  # 0.8 to 1.0
+            difficulty_scale = 0.8 + (star_rating / 2.0) * 0.2
         elif star_rating <= 4.0:
-            difficulty_scale = 1.0 + (star_rating - 2.0) * 0.2  # 1.0 to 1.4
+            difficulty_scale = 1.0 + (star_rating - 2.0) * 0.2
         elif star_rating <= 6.0:
-            difficulty_scale = 1.4 + (star_rating - 4.0) * 0.25  # 1.4 to 1.9
+            difficulty_scale = 1.4 + (star_rating - 4.0) * 0.25
         else:
-            difficulty_scale = 1.9 + (star_rating - 6.0) * 0.15  # 1.9+ for 6+ stars
+            difficulty_scale = 1.9 + (star_rating - 6.0) * 0.15
         
-        # Improved skill calculations
-        # Aim skill - considers star rating and AR
+        # Skill calculations
         aim_skill = acc_factor * (star_rating ** 1.05) * (1 + (ar - 9) * 0.05) * difficulty_scale
         
-        # Speed skill - considers BPM and star rating
-        bpm_factor = min(bpm / 150, 2.0)  # Normalize BPM, cap at 2x multiplier
+        # Updated BPM normalization for modern osu!
+        bpm_factor = min(bpm / self.THRESHOLDS['normal_bpm'], self.THRESHOLDS['max_bpm_multiplier'])
         speed_skill = acc_factor * bpm_factor * (star_rating ** 0.8) * difficulty_scale
         
-        # Accuracy skill - rewards precision, especially at higher difficulties
+        # Accuracy skill
         if accuracy > 90:
             accuracy_base = ((accuracy - 90) / 10) ** 1.1
             accuracy_skill = accuracy_base * (1 + star_rating * 0.1)
@@ -118,11 +136,11 @@ class SkillAnalyzer:
         return aim_skill * fail_penalty, speed_skill * fail_penalty, accuracy_skill * fail_penalty
 
     def get_mod_multiplier(self, mods: List[str]) -> float:
-        """Calculate mod multiplier for a play - fixed double application bug"""
+        """Calculate mod multiplier for a play"""
         if not mods:
             return 1.0
             
-        # Handle mod combinations properly - no double application
+        # Handle mod combinations properly
         has_dt = 'DT' in mods or 'NC' in mods
         has_hr = 'HR' in mods
         has_hd = 'HD' in mods
@@ -130,20 +148,19 @@ class SkillAnalyzer:
         has_fl = 'FL' in mods
         has_ht = 'HT' in mods
         
-        # Start with base multiplier
         multiplier = 1.0
         
-        # Apply combination bonuses (these override individual mod multipliers)
+        # Apply combination bonuses
         if has_dt and has_hr and has_hd:
-            multiplier *= 1.35  # DTHRHD
+            multiplier *= 1.35
         elif has_dt and has_hr:
-            multiplier *= 1.28  # DTHR
+            multiplier *= 1.28
         elif has_dt and has_hd:
-            multiplier *= 1.24  # DTHD
+            multiplier *= 1.24
         elif has_hr and has_hd:
-            multiplier *= 1.18  # HRHD
+            multiplier *= 1.18
         else:
-            # Apply individual mod multipliers only if no combinations
+            # Apply individual mod multipliers
             if has_dt:
                 multiplier *= self.mod_multipliers['DT']
             if has_hr:
@@ -151,7 +168,7 @@ class SkillAnalyzer:
             if has_hd:
                 multiplier *= self.mod_multipliers['HD']
         
-        # Apply other mods that don't have combinations
+        # Apply other mods
         if has_ez:
             multiplier *= self.mod_multipliers['EZ']
         if has_fl:
@@ -164,7 +181,6 @@ class SkillAnalyzer:
             if mod in ['SO', 'NF', 'SD', 'PF'] and mod in self.mod_multipliers:
                 multiplier *= self.mod_multipliers[mod]
         
-        # Reasonable multiplier range
         return min(max(multiplier, 0.6), 2.5)
 
     def calculate_skill_score(self, play: Dict) -> float:
@@ -173,12 +189,11 @@ class SkillAnalyzer:
         mods = play.get('mods', [])
         mod_multiplier = self.get_mod_multiplier(mods)
         
-        # Balanced weighting
         base_score = (0.45 * aim + 0.35 * speed + 0.20 * accuracy)
         return base_score * mod_multiplier
 
     def calculate_temporal_weight(self, play_date: str) -> float:
-        """Calculate temporal weight - fixed timezone issues"""
+        """Calculate temporal weight with better error handling"""
         try:
             # Parse datetime properly
             play_datetime = datetime.fromisoformat(play_date.replace('Z', '+00:00'))
@@ -203,7 +218,9 @@ class SkillAnalyzer:
                 return 0.6
             else:
                 return max(0.4, math.exp(-0.005 * days_old))
-        except:
+        except (ValueError, TypeError, AttributeError) as e:
+            # Log the error if you have logging set up
+            # logger.warning(f"Failed to parse play date {play_date}: {e}")
             return 0.5
 
     def detect_retries(self, plays: List[Dict]) -> List[Dict]:
@@ -237,7 +254,8 @@ class SkillAnalyzer:
                             if time_diff < 1200:  # 20 minutes
                                 play_copy['is_retry'] = True
                                 break
-                except:
+                except (ValueError, TypeError, AttributeError):
+                    # Skip this play if datetime parsing fails
                     pass
                     
             plays_with_retries.append(play_copy)
@@ -262,10 +280,7 @@ class SkillAnalyzer:
             skill_score = self.calculate_skill_score(play)
             temporal_weight = self.calculate_temporal_weight(play.get('created_at', ''))
             
-            # Gradual position decay
             position_weight = 0.97 ** i
-            
-            # Reasonable retry penalty
             retry_penalty = 0.75 if play.get('is_retry', False) else 1.0
             
             final_weight = temporal_weight * position_weight * retry_penalty
@@ -279,7 +294,6 @@ class SkillAnalyzer:
         if not recent_plays:
             return 0.0
         
-        # Use up to 30 recent plays for good balance
         return self.calculate_weighted_average(recent_plays[:30])
 
     def calculate_peak_skill(self, top_plays: List[Dict]) -> float:
@@ -287,7 +301,6 @@ class SkillAnalyzer:
         if not top_plays:
             return 0.0
         
-        # Use top 25 plays by PP
         top_plays_sorted = sorted(top_plays, key=lambda x: x.get('pp', 0), reverse=True)[:25]
         return self.calculate_weighted_average(top_plays_sorted)
 
@@ -298,7 +311,7 @@ class SkillAnalyzer:
         
         match = (recent_skill / peak_skill) * 100
         
-        # Improved reliability scaling
+        # Reliability scaling
         if recent_count >= 25:
             reliability = 1.0
         elif recent_count >= 15:
@@ -313,13 +326,13 @@ class SkillAnalyzer:
         return round(match * reliability, 2)
 
     def calculate_confidence_factors(self, recent_plays: List[Dict]) -> Dict[str, float]:
-        """Calculate confidence factors - improved scaling"""
+        """Calculate confidence factors"""
         if not recent_plays:
             return {'volume': 0, 'diversity': 0, 'recency': 0, 'consistency': 0}
         
         valid_plays = self.filter_valid_plays(recent_plays)
         
-        # Volume factor - more gradual and less harsh
+        # Volume factor
         play_count = len(valid_plays)
         if play_count >= 25:
             volume = 1.0
@@ -332,7 +345,7 @@ class SkillAnalyzer:
         else:
             volume = max(0.3, play_count * 0.08)
         
-        # Diversity factor - more reasonable requirements
+        # Diversity factor
         unique_maps = len(set(
             play.get('beatmap', {}).get('id') 
             for play in valid_plays 
@@ -348,7 +361,7 @@ class SkillAnalyzer:
         else:
             diversity = max(0.4, unique_maps * 0.1)
         
-        # Recency factor - spread across weeks
+        # Recency factor
         try:
             play_weeks = set()
             for play in valid_plays:
@@ -365,19 +378,18 @@ class SkillAnalyzer:
                 recency = 0.6 + (week_count - 2) * 0.1
             else:
                 recency = max(0.4, week_count * 0.3)
-        except:
+        except (ValueError, TypeError, AttributeError):
             recency = 0.5
         
-        # Consistency factor - less harsh on accuracy variation
+        # Consistency factor
         try:
             accuracies = [play.get('accuracy', 0) * 100 for play in valid_plays]
             if len(accuracies) > 1:
                 acc_std = statistics.stdev(accuracies)
-                # More forgiving accuracy consistency
                 consistency = max(0.4, 1 - (acc_std / 25))
             else:
                 consistency = 0.8
-        except:
+        except (statistics.StatisticsError, ValueError):
             consistency = 0.6
         
         return {
@@ -401,10 +413,9 @@ class SkillAnalyzer:
             for factor, weight in weights.items()
         )
 
-        # Scale to percentage
         confidence = min(confidence * 100, 100.0)
 
-        # Less harsh volume penalties
+        # Volume penalties
         volume = factors.get("volume", 0)
         if volume < 0.4:
             confidence *= 0.75
@@ -415,19 +426,21 @@ class SkillAnalyzer:
 
     def determine_verdict(self, skill_match: float, confidence: float,
                         valid_recent_plays: List[Dict], valid_top_plays: List[Dict]) -> str:
-        """Determine overall verdict with improved logic"""
+        """Determine overall verdict with clearer logic"""
         
-        # Check for insufficient data - more lenient
-# Check if user has no recent plays but valid top plays → inactive
-        if len(valid_recent_plays) == 0 and len(valid_top_plays) >= self.min_top_plays:
-            return 'inactive'
-
-        # Check for insufficient data
-        if len(valid_recent_plays) < self.min_recent_plays or len(valid_top_plays) < self.min_top_plays:
+        # Check for insufficient recent plays first
+        if len(valid_recent_plays) < self.min_recent_plays:
+            # If they have no recent plays but good top plays, they're inactive
+            if len(valid_recent_plays) == 0 and len(valid_top_plays) >= self.min_top_plays:
+                return 'inactive'
+            # Otherwise insufficient data
+            return 'insufficient'
+        
+        # Check for insufficient top plays
+        if len(valid_top_plays) < self.min_top_plays:
             return 'insufficient'
 
-
-        # More reasonable confidence requirements
+        # Check confidence
         if confidence < self.min_confidence_threshold:
             # Allow lower confidence if skill match is reasonable
             if confidence >= 15 and skill_match >= 50:
@@ -435,7 +448,7 @@ class SkillAnalyzer:
             else:
                 return 'insufficient'
 
-        # Verdict thresholds (kept reasonable)
+        # Verdict based on skill match
         skill_match = round(skill_match, 1)
 
         if skill_match >= 92:
@@ -447,63 +460,66 @@ class SkillAnalyzer:
         elif skill_match >= 35:
             return 'overranked'
         else:
-            return 'inactive'
+            return 'very_rusty'  # Changed from 'inactive' to avoid confusion
 
     def generate_insights(self, valid_recent_plays: List[Dict], valid_top_plays: List[Dict]) -> List[str]:
-        """Generate insights about the player's performance"""
+        """Generate insights about the player's performance - using consistent data"""
         insights = []
 
         if not valid_top_plays or not valid_recent_plays:
             insights.append("Limited data available for comprehensive analysis")
             return insights
 
+        # Use consistent data throughout - all based on valid plays
+        plays_with_retries = self.detect_retries(valid_recent_plays)
+
         # --- Insight 1: Top play age ---
-        nine_months_ago = datetime.now(pytz.UTC) - timedelta(days=270)
+        cutoff_date = datetime.now(pytz.UTC) - timedelta(days=self.THRESHOLDS['old_top_plays_months'] * 30)
         old_top_plays = sum(
             1 for play in valid_top_plays[:10]
-            if 'created_at' in play and datetime.fromisoformat(play['created_at'].replace('Z', '+00:00')) < nine_months_ago
+            if 'created_at' in play and datetime.fromisoformat(play['created_at'].replace('Z', '+00:00')) < cutoff_date
         )
-        if old_top_plays > 7:
+        if old_top_plays > (10 * self.THRESHOLDS['old_top_plays_ratio']):
             insights.append("Most top plays are quite old - consider setting new personal bests")
 
-        # --- Insight 2: Star rating gap (recent vs top) ---
+        # --- Insight 2: Star rating gap ---
         if len(valid_top_plays) >= 5 and len(valid_recent_plays) >= 5:
             avg_top_sr = sum(p.get('beatmap_full', {}).get('difficulty_rating', 0) for p in valid_top_plays[:10]) / 10
             avg_recent_sr = sum(p.get('beatmap_full', {}).get('difficulty_rating', 0) for p in valid_recent_plays[:10]) / 10
 
-            if avg_recent_sr < avg_top_sr * 0.7:
+            if avg_recent_sr < avg_top_sr * self.THRESHOLDS['star_rating_gap_low']:
                 insights.append("Recent plays are significantly easier than your peak performance")
-            elif avg_recent_sr > avg_top_sr * 1.15:
+            elif avg_recent_sr > avg_top_sr * self.THRESHOLDS['star_rating_gap_high']:
                 insights.append("You're attempting harder maps than your current top plays")
 
-        # --- Insight 3: Accuracy consistency & quality ---
+        # --- Insight 3: Accuracy consistency ---
         if len(valid_recent_plays) > 6:
             accuracies = [p.get('accuracy', 0) * 100 for p in valid_recent_plays]
             if len(accuracies) > 1:
-                acc_std = statistics.stdev(accuracies)
-                avg_acc = statistics.mean(accuracies)
-                if acc_std < 5:
-                    if avg_acc >= 98:
-                        insights.append("Excellent consistency with high accuracy!")
-                    elif avg_acc >= 95:
-                        insights.append("Great consistency and solid accuracy")
-                    elif avg_acc >= 90:
-                        insights.append("Good consistency — but aim for higher accuracy")
-                    elif avg_acc >= 75:
-                        insights.append("Stable consistency, but overall performance needs improvement")
-                    else:
-                        insights.append("Stable consistency, but accuracy is critically low — focus on fundamentals")
-
-
+                try:
+                    acc_std = statistics.stdev(accuracies)
+                    avg_acc = statistics.mean(accuracies)
+                    if acc_std < self.THRESHOLDS['accuracy_consistency_threshold']:
+                        if avg_acc >= 98:
+                            insights.append("Excellent consistency with high accuracy!")
+                        elif avg_acc >= 95:
+                            insights.append("Great consistency and solid accuracy")
+                        elif avg_acc >= 90:
+                            insights.append("Good consistency — but aim for higher accuracy")
+                        elif avg_acc >= 75:
+                            insights.append("Stable consistency, but overall performance needs improvement")
+                        else:
+                            insights.append("Stable consistency, but accuracy is critically low — focus on fundamentals")
+                except statistics.StatisticsError:
+                    pass
 
         # --- Insight 4: Retry behavior ---
-        plays_with_retries = self.detect_retries(valid_recent_plays)
         retry_count = sum(1 for play in plays_with_retries if play.get('is_retry', False))
         retry_rate = retry_count / len(plays_with_retries) if plays_with_retries else 0
 
-        if retry_rate > 0.4:
+        if retry_rate > self.THRESHOLDS['high_retry_rate']:
             insights.append("High retry rate detected - consider focusing on first-try consistency")
-        elif retry_rate < 0.15:
+        elif retry_rate < self.THRESHOLDS['low_retry_rate']:
             insights.append("Good play selection - low retry rate shows consistency")
 
         # --- Insight 5: Mod variety ---
@@ -515,43 +531,32 @@ class SkillAnalyzer:
 
         if len(mod_usage) == 1:
             insights.append("Consider trying different mods to develop diverse skills")
-        elif len(mod_usage) > 4:
+        elif len(mod_usage) > self.THRESHOLDS['max_mod_variety']:
             insights.append("Good mod variety - you're developing well-rounded skills")
 
-        # --- Insight 6: Speed vs Aim bias ---
-        # if len(valid_recent_plays) >= 5:
-        #     aim_skills = [self.calculate_skill_components(p)[0] for p in valid_recent_plays[:10]]
-        #     speed_skills = [self.calculate_skill_components(p)[1] for p in valid_recent_plays[:10]]
-        #     if aim_skills and speed_skills:
-        #         avg_aim = sum(aim_skills) / len(aim_skills)
-        #         avg_speed = sum(speed_skills) / len(speed_skills)
-        #         ratio = avg_speed / avg_aim if avg_aim else 0
-        #         if ratio > 1.2:
-        #             insights.append("Stronger on speed maps — aim maps needs work.")
-        #         elif ratio < 0.8:
-        #             insights.append("Stronger on aim maps — try training speed.")
-
-
-        # --- Insight 7: SR consistency vs variety ---
+        # --- Insight 6: SR consistency vs variety ---
         sr_values = [p.get('beatmap_full', {}).get('difficulty_rating', 0) for p in valid_recent_plays]
         if len(sr_values) >= 6:
-            sr_std = statistics.stdev(sr_values)
-            if sr_std < 0.3:
-                insights.append("You're focusing on a narrow difficulty range — try mixing up challenge levels.")
-            elif sr_std > 1.0:
-                insights.append("Great variety in map difficulty — good for balanced improvement.")
+            try:
+                sr_std = statistics.stdev(sr_values)
+                if sr_std < self.THRESHOLDS['sr_consistency_low']:
+                    insights.append("You're focusing on a narrow difficulty range — try mixing up challenge levels")
+                elif sr_std > self.THRESHOLDS['sr_consistency_high']:
+                    insights.append("Great variety in map difficulty — good for balanced improvement")
+            except statistics.StatisticsError:
+                pass
 
-        # --- Insight 8: High accuracy on easy maps ---
+        # --- Insight 7: High accuracy on easy maps ---
         if len(valid_recent_plays) >= 5:
             easy_high_acc = [
                 p for p in valid_recent_plays
-                if p.get('accuracy', 0) >= 0.96 and p.get('beatmap_full', {}).get('difficulty_rating', 0) < 3.5
+                if (p.get('accuracy', 0) >= self.THRESHOLDS['high_accuracy_threshold'] and 
+                    p.get('beatmap_full', {}).get('difficulty_rating', 0) < self.THRESHOLDS['easy_map_threshold'])
             ]
-            if len(easy_high_acc) >= 5:
-                insights.append("You’re achieving high accuracy on easier maps — try challenging yourself more.")
+            if len(easy_high_acc) >= self.THRESHOLDS['easy_high_acc_min_count']:
+                insights.append("You're achieving high accuracy on easier maps — try challenging yourself more")
 
         return insights
-
 
     def analyze_user_skill(self, user_data: Dict) -> Dict:
         """Perform comprehensive skill analysis"""
@@ -567,14 +572,14 @@ class SkillAnalyzer:
         peak_skill = self.calculate_peak_skill(valid_top_plays)
         skill_match = self.calculate_skill_match(recent_skill, peak_skill, len(valid_recent_plays))
 
-        # Confidence
+        # Confidence - use valid plays for consistency
         confidence_factors = self.calculate_confidence_factors(recent_plays)
         confidence = self.calculate_confidence_score(confidence_factors)
 
         # Verdict
         verdict = self.determine_verdict(skill_match, confidence, valid_recent_plays, valid_top_plays)
 
-        # Insights
+        # Insights - consistent data usage
         insights = self.generate_insights(valid_recent_plays, valid_top_plays)
 
         return {
