@@ -81,36 +81,41 @@ class SkillAnalyzer:
         bpm = beatmap.get('bpm', 120)
         passed = play.get('passed', True)
         
-        if accuracy >= 98:
-            acc_factor = 0.98 + (accuracy - 98) * 0.02
-        elif accuracy >= 95:
-            acc_factor = 0.95 + (accuracy - 95) * 0.01
+        # More realistic accuracy scaling
+        if accuracy >= 99:
+            acc_factor = 0.99 + (accuracy - 99) * 0.01
+        elif accuracy >= 96:
+            acc_factor = 0.96 + (accuracy - 96) * 0.01
         elif accuracy >= 90:
             acc_factor = 0.90 + (accuracy - 90) * 0.01
+        elif accuracy >= 80:
+            acc_factor = 0.80 + (accuracy - 80) * 0.01
         else:
-            acc_factor = accuracy / 100
+            acc_factor = accuracy / 100 * 0.8
         
-        fail_penalty = 0.85 if not passed else 1.0
+        fail_penalty = 0.75 if not passed else 1.0
 
-        if star_rating <= 2.0:
-            difficulty_scale = 0.8 + (star_rating / 2.0) * 0.2
-        elif star_rating <= 4.0:
-            difficulty_scale = 1.0 + (star_rating - 2.0) * 0.2
-        elif star_rating <= 6.0:
-            difficulty_scale = 1.4 + (star_rating - 4.0) * 0.25
+        # More conservative difficulty scaling
+        if star_rating <= 3.0:
+            difficulty_scale = 0.7 + (star_rating / 3.0) * 0.3
+        elif star_rating <= 5.0:
+            difficulty_scale = 1.0 + (star_rating - 3.0) * 0.15
+        elif star_rating <= 7.0:
+            difficulty_scale = 1.3 + (star_rating - 5.0) * 0.2
         else:
-            difficulty_scale = 1.9 + (star_rating - 6.0) * 0.15
+            difficulty_scale = 1.7 + (star_rating - 7.0) * 0.1
         
-        aim_skill = acc_factor * (star_rating ** 1.05) * (1 + (ar - 9) * 0.05) * difficulty_scale
+        aim_skill = acc_factor * (star_rating ** 1.1) * (1 + (ar - 9) * 0.03) * difficulty_scale
         
         bpm_factor = min(bpm / self.THRESHOLDS['normal_bpm'], self.THRESHOLDS['max_bpm_multiplier'])
-        speed_skill = acc_factor * bpm_factor * (star_rating ** 0.8) * difficulty_scale
+        speed_skill = acc_factor * bpm_factor * (star_rating ** 0.9) * difficulty_scale
         
-        if accuracy > 90:
-            accuracy_base = ((accuracy - 90) / 10) ** 1.1
-            accuracy_skill = accuracy_base * (1 + star_rating * 0.1)
+        # Fixed accuracy skill calculation
+        if accuracy >= 95:
+            accuracy_base = ((accuracy - 80) / 20) ** 1.2
+            accuracy_skill = accuracy_base * (1 + star_rating * 0.08)
         else:
-            accuracy_skill = 0
+            accuracy_skill = max(0, (accuracy - 60) / 40) * (1 + star_rating * 0.05)
 
         return aim_skill * fail_penalty, speed_skill * fail_penalty, accuracy_skill * fail_penalty
 
@@ -128,14 +133,15 @@ class SkillAnalyzer:
         
         multiplier = 1.0
         
+        # Fixed mod combination bonuses
         if has_dt and has_hr and has_hd:
-            multiplier *= 1.35
+            multiplier *= 1.32
         elif has_dt and has_hr:
-            multiplier *= 1.28
+            multiplier *= 1.25
         elif has_dt and has_hd:
-            multiplier *= 1.24
+            multiplier *= 1.22
         elif has_hr and has_hd:
-            multiplier *= 1.18
+            multiplier *= 1.16
         else:
             if has_dt:
                 multiplier *= self.mod_multipliers['DT']
@@ -155,7 +161,7 @@ class SkillAnalyzer:
             if mod in ['SO', 'NF', 'SD', 'PF'] and mod in self.mod_multipliers:
                 multiplier *= self.mod_multipliers[mod]
         
-        return min(max(multiplier, 0.6), 2.5)
+        return min(max(multiplier, 0.6), 2.2)
 
     def calculate_skill_score(self, play: Dict) -> float:
         """Calculate overall skill score for a play"""
@@ -163,7 +169,8 @@ class SkillAnalyzer:
         mods = play.get('mods', [])
         mod_multiplier = self.get_mod_multiplier(mods)
         
-        base_score = (0.45 * aim + 0.35 * speed + 0.20 * accuracy)
+        # Rebalanced weights
+        base_score = (0.4 * aim + 0.4 * speed + 0.2 * accuracy)
         return base_score * mod_multiplier
 
     def calculate_temporal_weight(self, play_date: str) -> float:
@@ -177,10 +184,13 @@ class SkillAnalyzer:
             current_time = datetime.now(pytz.UTC)
             days_old = (current_time - play_datetime).days
             
-            if days_old <= 14:
+            # More gradual decay
+            if days_old <= 7:
                 return 1.0
+            elif days_old <= 14:
+                return 0.98
             elif days_old <= 30:
-                return 0.95
+                return 0.93
             elif days_old <= 60:
                 return 0.85
             elif days_old <= 90:
@@ -188,7 +198,7 @@ class SkillAnalyzer:
             elif days_old <= 180:
                 return 0.6
             else:
-                return max(0.4, math.exp(-0.005 * days_old))
+                return max(0.35, math.exp(-0.004 * days_old))
         except (ValueError, TypeError, AttributeError):
             return 0.5
 
@@ -219,7 +229,7 @@ class SkillAnalyzer:
                             prev_datetime = datetime.fromisoformat(prev_time.replace('Z', '+00:00'))
                             time_diff = abs((current_datetime - prev_datetime).total_seconds())
                             
-                            if time_diff < 1200:
+                            if time_diff < 1800:  # Increased to 30 minutes
                                 play_copy['is_retry'] = True
                                 break
                 except (ValueError, TypeError, AttributeError):
@@ -247,8 +257,8 @@ class SkillAnalyzer:
             skill_score = self.calculate_skill_score(play)
             temporal_weight = self.calculate_temporal_weight(play.get('created_at', ''))
             
-            position_weight = 0.97 ** i
-            retry_penalty = 0.85 if play.get('is_retry', False) else 1.0
+            position_weight = 0.95 ** i  # Less aggressive decay
+            retry_penalty = 0.9 if play.get('is_retry', False) else 1.0  # Less harsh penalty
             
             final_weight = temporal_weight * position_weight * retry_penalty
             total_weighted_score += skill_score * final_weight
@@ -278,16 +288,17 @@ class SkillAnalyzer:
         
         match = (recent_skill / peak_skill) * 100
         
-        if recent_count >= 25:
+        # More generous reliability scaling
+        if recent_count >= 20:
             reliability = 1.0
         elif recent_count >= 15:
-            reliability = 0.95 + (recent_count - 15) * 0.005
+            reliability = 0.95 + (recent_count - 15) * 0.01
         elif recent_count >= 10:
-            reliability = 0.85 + (recent_count - 10) * 0.02
+            reliability = 0.88 + (recent_count - 10) * 0.014
         elif recent_count >= 6:
-            reliability = 0.7 + (recent_count - 6) * 0.0375
+            reliability = 0.75 + (recent_count - 6) * 0.0325
         else:
-            reliability = max(0.5, recent_count * 0.1)
+            reliability = max(0.6, recent_count * 0.1)
         
         return round(match * reliability, 2)
 
@@ -348,7 +359,7 @@ class SkillAnalyzer:
             accuracies = [play.get('accuracy', 0) * 100 for play in valid_plays]
             if len(accuracies) > 1:
                 acc_std = statistics.stdev(accuracies)
-                consistency = max(0.4, 1 - (acc_std / 25))
+                consistency = max(0.3, 1 - (acc_std / 30))  # Less harsh penalty
             else:
                 consistency = 0.8
         except (statistics.StatisticsError, ValueError):
@@ -379,9 +390,9 @@ class SkillAnalyzer:
 
         volume = factors.get("volume", 0)
         if volume < 0.4:
-            confidence *= 0.75
+            confidence *= 0.8  # Less harsh penalty
         elif volume < 0.6:
-            confidence *= 0.9
+            confidence *= 0.95
 
         return round(confidence, 1)
 
@@ -405,9 +416,9 @@ class SkillAnalyzer:
 
         skill_match = round(skill_match, 1)
 
-        if skill_match >= 90:
+        if skill_match >= 88:
             return 'accurate'
-        elif skill_match >= 80:
+        elif skill_match >= 78:
             return 'slightly_rusty'
         elif skill_match >= 60:
             return 'rusty'
