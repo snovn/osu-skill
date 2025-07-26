@@ -66,6 +66,10 @@ class SkillAnalyzer:
         if not (30 <= bpm <= 600):
             return False
         
+        mods = play.get('mods', [])
+        if any(mod in mods for mod in ['RX', 'AP']):
+            return False
+        
         return True
 
     def filter_valid_plays(self, plays: List[Dict]) -> List[Dict]:
@@ -492,6 +496,7 @@ class SkillAnalyzer:
             insights.append("Consider trying different mods to develop diverse skills")
         elif len(mod_usage) > self.THRESHOLDS['max_mod_variety']:
             insights.append("Good mod variety - you're developing well-rounded skills")
+
             
         return insights
 
