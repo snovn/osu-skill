@@ -543,47 +543,75 @@ def force_reanalyze_user(username):
 @analysis_bp.route('/api/admin/reanalyze_all')
 @admin_required
 def reanalyze_all_users():
-    """Admin endpoint to reanalyze all users"""
+    """Admin endpoint to reanalyze all users with progress tracking"""
     db, osu_client, analyzer = get_components()
 
     try:
-        # Get all users
-        users = db.get_all_users()
-        if not users:
+        # Get total count first for progress tracking
+        count_response = db.client.table('users').select('id', count='exact').execute()
+        total_users = count_response.count if count_response.count else 0
+        
+        if total_users == 0:
             return jsonify({'message': 'No users found'}), 200
 
         reanalyzed = []
+        processed = 0
+        page_size = 1000
+        last_id = 0
 
-        for user in users:
-            username = user.get('username')
-            user_id = user.get('id')
+        while True:
+            # Fetch batch of users
+            response = (db.client
+                       .table('users')
+                       .select('id, username')
+                       .gt('id', last_id)
+                       .order('id', desc=False)
+                       .limit(page_size)
+                       .execute())
+            
+            if not response.data:
+                break
 
-            try:
-                print(f"Reanalyzing: {username}")
-                user_data = osu_client.get_comprehensive_user_data(username)
+            # Process current batch
+            for user in response.data:
+                username = user.get('username')
+                user_id = user.get('id')
+                processed += 1
 
-                if not user_data or not user_data.get('user_info'):
-                    print(f"Skipping {username}: could not fetch data")
+                try:
+                    print(f"Reanalyzing ({processed}/{total_users}): {username}")
+                    user_data = osu_client.get_comprehensive_user_data(username)
+
+                    if not user_data or not user_data.get('user_info'):
+                        print(f"Skipping {username}: could not fetch data")
+                        continue
+
+                    analysis = analyzer.analyze_user_skill(user_data)
+                    db.save_analysis_result(user_id, analysis)
+                    db.update_leaderboard(user_id, analysis)
+                    reanalyzed.append({
+                        'username': username,
+                        'verdict': analysis['verdict']
+                    })
+
+                except Exception as e:
+                    print(f"Error analyzing {username}: {e}")
                     continue
 
-                analysis = analyzer.analyze_user_skill(user_data)
-                db.save_analysis_result(user_id, analysis)
-                db.update_leaderboard(user_id, analysis)
-                reanalyzed.append({
-                    'username': username,
-                    'verdict': analysis['verdict']
-                })
-
-            except Exception as e:
-                print(f"Error analyzing {username}: {e}")
-                continue
+            # If we got fewer than page_size records, we've reached the end
+            if len(response.data) < page_size:
+                break
+                
+            # Update last_id for next iteration
+            last_id = response.data[-1]['id']
 
         return jsonify({
             'reanalyzed_count': len(reanalyzed),
+            'total_processed': processed,
+            'total_users': total_users,
             'reanalyzed_users': reanalyzed,
             'timestamp': datetime.now(pytz.UTC).isoformat()
         })
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-

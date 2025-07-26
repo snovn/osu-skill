@@ -633,10 +633,33 @@ class SupabaseDatabase:
             return None
         
     def get_all_users(self) -> List[Dict]:
-        """Fetch all users from the database"""
+        """Fetch all users from the database using pagination to bypass 1000 row limit"""
+        all_users = []
+        page_size = 1000
+        offset = 0
+        
         try:
-            response = self.client.table('users').select('id, username').execute()
-            return response.data if response.data else []
+            while True:
+                # Fetch a page of users with offset and limit
+                response = (self.client
+                        .table('users')
+                        .select('id, username')
+                        .range(offset, offset + page_size - 1)
+                        .execute())
+                
+                if not response.data:
+                    break
+                    
+                all_users.extend(response.data)
+                
+                # If we got fewer than page_size records, we've reached the end
+                if len(response.data) < page_size:
+                    break
+                    
+                offset += page_size
+                
+            return all_users
+            
         except Exception as e:
             print(f"Error fetching all users: {e}")
             return []
