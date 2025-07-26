@@ -243,13 +243,25 @@ class OsuClient:
         filtered_scores = []
         
         for score in recent_scores:
-            if score.get('created_at'):
-                try:
-                    play_date = datetime.fromisoformat(score['created_at'].replace('Z', '+00:00'))
-                    if play_date.replace(tzinfo=None) >= sixty_days_ago:
-                        filtered_scores.append(score)
-                except ValueError:
-                    continue
+            # Check for valid date
+            if not score.get('created_at'):
+                continue
+
+            # Check if the beatmap is ranked or loved
+            beatmap = score.get('beatmap')
+            if not beatmap:
+                continue
+            status = beatmap.get('status')
+            if status not in ('ranked', 'loved', 'qualified'):
+                continue
+
+            try:
+                play_date = datetime.fromisoformat(score['created_at'].replace('Z', '+00:00'))
+                if play_date.replace(tzinfo=None) >= sixty_days_ago:
+                    filtered_scores.append(score)
+            except ValueError:
+                continue
+
         
         return filtered_scores
     
