@@ -610,14 +610,14 @@
         <h3 id="confidence-system">Confidence System</h3>
         <p>The confidence system has been refined for more accurate reliability assessment:</p>
 
-        <h4>Volume (35%)</h4>
+        <h4>Volume (40%)</h4>
         <p>Based on number of recent plays with more generous scaling:</p>
         <ul>
           <li><strong>25+ plays:</strong> 1.0</li>
-          <li><strong>15-24 plays:</strong> 0.95 + scaling</li>
-          <li><strong>10-14 plays:</strong> 0.88 + scaling</li>
-          <li><strong>6-9 plays:</strong> 0.75 + scaling</li>
-          <li><strong><6 plays:</strong> Minimum 0.6</li>
+          <li><strong>15-24 plays:</strong> 0.85 + scaling</li>
+          <li><strong>10-14 plays:</strong> 0.7 + scaling</li>
+          <li><strong>6-9 plays:</strong> 0.5 + scaling</li>
+          <li><strong><6 plays:</strong> Minimum 0.3</li>
         </ul>
 
         <h4>Diversity (25%)</h4>
@@ -629,16 +629,7 @@
           <li><strong><6 maps:</strong> Minimum 0.4</li>
         </ul>
 
-        <h4>Recency (25%)</h4>
-        <p>Based on calendar weeks with recent activity:</p>
-        <ul>
-          <li><strong>6+ weeks:</strong> 1.0</li>
-          <li><strong>4-5 weeks:</strong> 0.8 + scaling</li>
-          <li><strong>2-3 weeks:</strong> 0.6 + scaling</li>
-          <li><strong><2 weeks:</strong> Minimum 0.4</li>
-        </ul>
-
-        <h4>Consistency (15%)</h4>
+        <h4>Consistency (35%)</h4>
         <p>Based on accuracy standard deviation with less harsh penalties:</p>
         <div class="formula-box">
           <code>max(0.3, 1 - (accuracy_std / 30))</code>

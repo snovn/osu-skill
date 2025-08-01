@@ -307,12 +307,13 @@ class SkillAnalyzer:
         return round(match * reliability, 2)
 
     def calculate_confidence_factors(self, recent_plays: List[Dict]) -> Dict[str, float]:
-        """Calculate confidence factors"""
+        """Calculate confidence factors (without recency)"""
         if not recent_plays:
-            return {'volume': 0, 'diversity': 0, 'recency': 0, 'consistency': 0}
+            return {'volume': 0, 'diversity': 0, 'consistency': 0}
         
         valid_plays = self.filter_valid_plays(recent_plays)
         
+        # Volume factor
         play_count = len(valid_plays)
         if play_count >= 25:
             volume = 1.0
@@ -325,6 +326,7 @@ class SkillAnalyzer:
         else:
             volume = max(0.3, play_count * 0.08)
         
+        # Diversity factor
         unique_maps = len(set(
             play.get('beatmap', {}).get('id') 
             for play in valid_plays 
@@ -340,25 +342,7 @@ class SkillAnalyzer:
         else:
             diversity = max(0.4, unique_maps * 0.1)
         
-        try:
-            play_weeks = set()
-            for play in valid_plays:
-                if play.get('created_at'):
-                    play_date = datetime.fromisoformat(play['created_at'].replace('Z', '+00:00'))
-                    play_weeks.add(play_date.isocalendar()[1])
-            
-            week_count = len(play_weeks)
-            if week_count >= 6:
-                recency = 1.0
-            elif week_count >= 4:
-                recency = 0.8 + (week_count - 4) * 0.1
-            elif week_count >= 2:
-                recency = 0.6 + (week_count - 2) * 0.1
-            else:
-                recency = max(0.4, week_count * 0.3)
-        except (ValueError, TypeError, AttributeError):
-            recency = 0.5
-        
+        # Consistency factor
         try:
             accuracies = [play.get('accuracy', 0) * 100 for play in valid_plays]
             if len(accuracies) > 1:
@@ -372,17 +356,15 @@ class SkillAnalyzer:
         return {
             'volume': volume,
             'diversity': diversity,
-            'recency': recency,
             'consistency': consistency
         }
 
     def calculate_confidence_score(self, factors: Dict[str, float]) -> float:
-        """Calculate overall confidence score"""
+        """Calculate overall confidence score (adjusted weights without recency)"""
         weights = {
-            'volume': 0.35,
-            'diversity': 0.25,
-            'recency': 0.25,
-            'consistency': 0.15
+            'volume': 0.40, 
+            'diversity': 0.35, 
+            'consistency': 0.25 
         }
 
         confidence = sum(
