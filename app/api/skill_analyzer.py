@@ -33,6 +33,32 @@ class SkillAnalyzer:
             'max_bpm_multiplier': 2.5
         }
 
+    def get_effective_star_rating(self, play: Dict) -> float:
+        """Calculate effective star rating accounting for mods"""
+        base_sr = play.get('beatmap_full', {}).get('difficulty_rating', 0)
+        mods = play.get('mods', [])
+        
+        if not mods:
+            return base_sr
+        
+        # DT/NC increases star rating significantly
+        if 'DT' in mods or 'NC' in mods:
+            base_sr *= 1.4  # Approximate DT star rating multiplier
+        
+        # HT decreases star rating
+        if 'HT' in mods:
+            base_sr *= 0.75  # Approximate HT star rating multiplier
+            
+        # HR increases star rating moderately
+        if 'HR' in mods:
+            base_sr *= 1.1  # Approximate HR star rating multiplier
+            
+        # EZ decreases star rating
+        if 'EZ' in mods:
+            base_sr *= 0.5  # Approximate EZ star rating multiplier
+        
+        return base_sr
+
     def validate_play_data(self, play: Dict) -> bool:
         """Validate that a play has the required data for analysis"""
         required_fields = ['accuracy', 'created_at']
@@ -431,9 +457,10 @@ class SkillAnalyzer:
         if old_top_plays > (10 * self.THRESHOLDS['old_top_plays_ratio']):
             insights.append("Most top plays are quite old - consider setting new personal bests")
 
+        # FIXED: Use effective star rating that accounts for mods
         if len(valid_top_plays) >= 5 and len(valid_recent_plays) >= 5:
-            avg_top_sr = sum(p.get('beatmap_full', {}).get('difficulty_rating', 0) for p in valid_top_plays[:5]) / 5
-            avg_recent_sr = sum(p.get('beatmap_full', {}).get('difficulty_rating', 0) for p in valid_recent_plays[:10]) / 10
+            avg_top_sr = sum(self.get_effective_star_rating(p) for p in valid_top_plays[:5]) / 5
+            avg_recent_sr = sum(self.get_effective_star_rating(p) for p in valid_recent_plays[:10]) / 10
 
             if avg_recent_sr < avg_top_sr * 0.8:
                 insights.append("Playing well below your peak difficulty - consider more challenging maps for improvement")
